@@ -1,8 +1,9 @@
 const BYTE_VALUES = Object.freeze({
-    KB: 1024
+    KiB: 1024,
+    MiB: 1048576,
 });
 
-const RomHeaderAddresses = Object.freeze({
+const ROMHeaderAddresses = Object.freeze({
     ENTRY: 0x100,
     LOGO: 0x104,
     TITLE: 0x134,
@@ -22,17 +23,33 @@ const RomHeaderAddresses = Object.freeze({
 
 
 /**
+ * @typedef ROMMetadata
+ * @property {string} gameTitle
+ * @property {boolean} supportsColor
+ * @property {boolean} supportsSGB
+ * @property {number} ROMSize
+ * @property {number} RAMSize
+ */
+
+/**
  * @typedef GlobalVariables
- * @property {Uint8Array | null} ROM
- * @property {Uint8Array} SRAM
+ * @property {ROMMetadata} metadata
+ * @property {Uint8Array | null} cartridgeROM
+ * @property {Uint8Array | null} cartridgeRAM
  * 
  */
 
 /**  
  * @type {GlobalVariables}
 */
-const GLOBALS = {
-    GAME_TITLE: "",
+const Globals = {
+    metadata: {
+        gameTitle: "",
+        supportsColor: false,
+        supportsSGB: false,
+        ROMSize: 0, // Cartridge ROM size in bytes
+        RAMSize: 0, // Cartridge RAM size in bytes
+    },
     ROM: null,
-    RAM: new Uint8Array(),
+    cartridgeRAM: null,
 }

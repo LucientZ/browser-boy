@@ -36,7 +36,7 @@ const ROMHeaderAddresses = Object.freeze({
 /**
  * @typedef GlobalVariables
  * @property {ROMMetadata} metadata
- * @property {Uint8Array | null} cartridgeROM
+ * @property {Uint8Array | null} ROM
  * @property {Uint8Array | null} cartridgeRAM
  * 
  */

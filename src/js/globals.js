@@ -28,7 +28,9 @@ const ROMHeaderAddresses = Object.freeze({
  * @property {boolean} supportsColor
  * @property {boolean} supportsSGB
  * @property {number} ROMSize
+ * @property {number} ROMBankNum
  * @property {number} RAMSize
+ * @property {number} RAMBankNum
  */
 
 /**
@@ -48,7 +50,9 @@ const Globals = {
         supportsColor: false,
         supportsSGB: false,
         ROMSize: 0, // Cartridge ROM size in bytes
+        ROMBankNum: 0,
         RAMSize: 0, // Cartridge RAM size in bytes
+        RAMBankNum: 0,
     },
     ROM: null,
     cartridgeRAM: null,

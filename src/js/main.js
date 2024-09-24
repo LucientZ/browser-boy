@@ -28,7 +28,7 @@ async function dropHandler(event) {
     if (Globals.ROM) {
         try {
             parseROM(Globals.ROM);
-            document.getElementById("game-title").innerText = Globals.metadata.title;
+            document.getElementById("game-title").innerText = `${Globals.metadata.title} Version ${Globals.ROM[ROMHeaderAddresses.ROM_VERSION]}`;
         }
         catch (error) {
             alert(error);
@@ -66,7 +66,7 @@ function parseROM(rom) {
     for (let address = 0x134; address <= 0x14C; address++) {
         checksum = mod((checksum - Globals.ROM[address] - 1), 256);
     }
-    
+
     if (checksum != Globals.ROM[ROMHeaderAddresses.HEADER_CHECKSUM]) {
         throw new Error(`Invalid ROM (Checksum Failed) ${checksum} != ${Globals.ROM[ROMHeaderAddresses.HEADER_CHECKSUM]}`);
     }
@@ -81,6 +81,67 @@ function parseROM(rom) {
         Globals.metadata.title += String.fromCharCode(characterCode);
     }
 
+    // ROM Size
+    switch (Globals.ROM[ROMHeaderAddresses.ROM_SIZE]) {
+        case 0x00:
+        case 0x01:
+        case 0x02:
+        case 0x03:
+        case 0x04:
+        case 0x05:
+        case 0x06:
+        case 0x07:
+        case 0x08:
+            Globals.metadata.ROMSize = 32 * BYTE_VALUES.KiB * (1 << Globals.ROM[ROMHeaderAddresses.ROM_SIZE]);
+            Globals.metadata.ROMBankNum = Math.floor(Globals.metadata.RAMSize / (16 * BYTE_VALUES.KiB));
+            break;
+        case 0x52:
+            Globals.metadata.ROMSize = Math.floor(1.1 * BYTE_VALUES.MiB);
+            Globals.metadata.ROMBankNum = 72;
+            break;
+        case 0x53:
+            Globals.metadata.ROMSize = Math.floor(1.2 * BYTE_VALUES.MiB);
+            Globals.metadata.ROMBankNum = 80;
+            break;
+        case 0x54:
+            Globals.metadata.ROMSize = Math.floor(1.5 * BYTE_VALUES.MiB);
+            Globals.metadata.ROMBankNum = 96;
+            break;
+        default:
+            throw new Error("Invalid ROM (Invalid ROM size given)")
+    }
+
+    // RAM Size
+    switch (Globals.ROM[ROMHeaderAddresses.RAM_SIZE]) {
+        case 0x00:
+            Globals.metadata.RAMSize = 0;
+            Globals.metadata.RAMBankNum = 0;
+            break;
+        case 0x01:
+            Globals.metadata.RAMSize = 0;
+            Globals.metadata.RAMBankNum = 0;
+            break;
+        case 0x02:
+            Globals.metadata.RAMSize = 8 * BYTE_VALUES.KiB;
+            Globals.metadata.RAMBankNum = 1;
+            break;
+        case 0x03:
+            Globals.metadata.RAMSize = 32 * BYTE_VALUES.KiB;
+            Globals.metadata.RAMBankNum = 4;
+            break;
+        case 0x04:
+            Globals.metadata.RAMSize = 128 * BYTE_VALUES.KiB;
+            Globals.metadata.RAMBankNum = 16;
+            break;
+        case 0x05:
+            Globals.metadata.RAMSize = 64 * BYTE_VALUES.KiB;
+            Globals.metadata.RAMBankNum = 8;
+            break;
+        default:
+            throw new Error("Invalid ROM (Invalid RAM size given)");
+    }
+
+    // Flags
     Globals.metadata.supportsColor = (Globals.ROM[ROMHeaderAddresses.CGB_FLAG] & 0x80) != 0;
     Globals.metadata.supportsSGB = Globals.ROM[ROMHeaderAddresses.SGB_FLAG] == 0x03;
 

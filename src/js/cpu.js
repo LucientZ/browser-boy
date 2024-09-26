@@ -1825,5 +1825,10 @@ const opcodeTable16Bit = {
 
 function doNextInstruction() {
     instruction = gameboyRead(Registers.PC++);
-    opcodeTable[instruction]();
+    if (instruction === 0xCB) {
+        opcodeTable16Bit[gameboyRead(Registers.PC++)]();
+    }
+    else {
+        opcodeTable8Bit[instruction]();
+    }
 }

@@ -1,6 +1,9 @@
 const BYTE_VALUES = Object.freeze({
     KiB: 1024,
     MiB: 1048576,
+    UINT_8_MAX: Math.pow(2, 8) - 1,
+    UINT_16_MAX: Math.pow(2, 16) - 1,
+    UINT_32_MAX: Math.pow(2, 32) - 1,
 });
 
 const ROMHeaderAddresses = Object.freeze({
@@ -38,6 +41,7 @@ const ROMHeaderAddresses = Object.freeze({
  * @property {ROMMetadata} metadata
  * @property {Uint8Array | null} ROM
  * @property {Uint8Array | null} cartridgeRAM
+ * @property {number} cycleNumber
  * 
  */
 
@@ -56,4 +60,5 @@ const Globals = {
     },
     ROM: null,
     cartridgeRAM: null,
+    cycleNumber: 0,
 }

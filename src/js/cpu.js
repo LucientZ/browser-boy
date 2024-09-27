@@ -230,6 +230,28 @@ function add16Bit(a, b) {
     return result;
 }
 
+function subtract8Bit(a, b) {
+    const result = mod(a + b, BYTE_VALUES.UINT_8_MAX + 1);
+    return result;
+}
+
+function subtract16Bit(a, b) {
+    const result = mod(a + b, BYTE_VALUES.UINT_16_MAX + 1);
+    return result;
+}
+
+function signedRelativeJump() {
+    const jumpValue = gameboyRead(Registers.PC++);
+    if (jumpValue & 0x80) {
+        jumpValue = mod(-jumpValue, Math.pow(2, 8));
+        Registers.PC -= jumpValue;
+    }
+    else {
+        Registers.PC += jumpValue;
+    }
+    Globals.cycleNumber += 3;
+}
+
 /**
  * https://meganesu.github.io/generate-gb-opcodes/
  * https://gbdev.io/gb-opcodes/optables/
@@ -269,7 +291,7 @@ const opcodeTable8Bit = {
         Globals.cycleNumber += 2;
     },
     0x07: () => {
-        // Rotate A left
+        // RLCA
         Registers.Fc = A >> 0x7;
         Registers.A = (A << 1) + Registers.Fc;
         Registers.Fz = 0;
@@ -319,7 +341,7 @@ const opcodeTable8Bit = {
         Globals.cycleNumber += 2;
     },
     0x0F: () => {
-        // Rotate A to the right
+        // RRCA
         Registers.Fc = Registers.A & 0x1;
         Registers.A = Registers.A >> 1;
         Registers.A += (Registers.Fc << 7);
@@ -336,100 +358,219 @@ const opcodeTable8Bit = {
         Globals.cycleNumber += 1;
     },
     0x11: () => {
-
+        // DE = (PC)
+        Registers.E = gameboyRead(Registers.PC++);
+        Registers.D = gameboyRead(Registers.PC++);
+        Globals.cycleNumber += 3;
     },
     0x12: () => {
-
+        // (DE) <- A
+        gameboyWrite(combineRegisters(Registers.D, Registers.E), Registers.A);
+        Globals.cycleNumber += 2;
     },
     0x13: () => {
-
+        // DE++
+        value = increment16Bit(combineRegisters(Registers.D, Registers.E));
+        [Registers.D, Registers.E] = splitRegisters(value);
+        Globals.cycleNumber += 2;
     },
     0x14: () => {
-
+        // D++
+        Registers.D = increment8Bit(Registers.D);
+        Globals.cycleNumber += 1;
     },
     0x15: () => {
-
+        // D--
+        Registers.D = decrement8Bit(Registers.D);
+        Globals.cycleNumber += 1;
     },
     0x16: () => {
-
+        // D <- d8 
+        Registers.D = gameboyRead(Registers.PC++);
+        Globals.cycleNumber += 2;
     },
     0x17: () => {
-
+        // RLA
+        const value = 2 * Registers.A + Registers.Fc;
+        Registers.Fc = value >> 8;
+        Registers.A = value;
+        Registers.Fz = 0;
+        Registers.Fn = 0;
+        Registers.Fh = 0;
+        Globals.cycleNumber += 1;
     },
     0x18: () => {
-
+        // PC += (signed) (PC++)
+        signedRelativeJump();
     },
     0x19: () => {
-
+        // HL += DE
+        const HL = combineRegisters(Registers.H, Registers.L);
+        const DE = combineRegisters(Registers.D, Registers.E);
+        const result = add16Bit(HL, DE);
+        [Registers.H, Registers.L] = splitRegisters(result);
+        Globals.cycleNumber += 2;
     },
     0x1A: () => {
-
+        // A <- (DE)
+        Registers.A = gameboyRead(combineRegisters(Registers.D, Registers.E));
+        Globals.cycleNumber += 1;
     },
     0x1B: () => {
-
+        // DE--
+        const DE = combineRegisters(Registers.D, Registers.E);
+        [Registers.D, Registers.E] = splitRegisters(increment16Bit(DE));
+        Globals.cycleNumber += 2;
     },
     0x1C: () => {
-
+        // E++
+        Registers.E = increment8Bit(Registers.E);
+        Globals.cycleNumber += 1;
     },
     0x1D: () => {
-
+        // E--
+        Registers.E = decrement8Bit(Registers.E);
+        Globals.cycleNumber += 1;
     },
     0x1E: () => {
-
+        // E <- (PC)
+        Registers.E = gameboyRead(Registers.PC++);
+        Globals.cycleNumber += 2;
     },
     0x1F: () => {
-
+        // RRA
+        const value = Registers.Fc;
+        Registers.Fc = Registers.A & 0x1;
+        Registers.A = Registers.A >> 1;
+        Registers.A += value << 7;
+        Registers.Fz = 0;
+        Registers.Fn = 0;
+        Registers.Fh = 0;
+        Globals.cycleNumber += 1;
     },
     0x20: () => {
-
+        // If last operation was zero
+        // PC += (signed) (PC++)
+        if (!Registers.Fz) {
+            signedRelativeJump();
+        }
+        else {
+            Registers.PC++;
+            Globals.cycleNumber += 2;
+        }
     },
     0x21: () => {
-
+        // HL = (PC)
+        Registers.L = gameboyRead(Registers.PC++);
+        Registers.H = gameboyRead(Registers.PC++);
+        Globals.cycleNumber += 3;
     },
     0x22: () => {
-
+        // (HL) <- A
+        gameboyWrite(combineRegisters(Registers.H, Registers.L), Registers.A);
+        Globals.cycleNumber += 2;
     },
     0x23: () => {
-
+        // HL++
+        value = increment16Bit(combineRegisters(Registers.H, Registers.L));
+        [Registers.H, Registers.L] = splitRegisters(value);
+        Globals.cycleNumber += 2;
     },
     0x24: () => {
-
+        // H++
+        Registers.H = increment8Bit(Registers.H);
+        Globals.cycleNumber += 1;
     },
     0x25: () => {
-
+        // H--
+        Registers.H = decrement8Bit(Registers.H);
+        Globals.cycleNumber += 1;
     },
     0x26: () => {
-
+        // H <- d8 
+        Registers.H = gameboyRead(Registers.PC++);
+        Globals.cycleNumber += 2;
     },
     0x27: () => {
+        // DAA
+        // https://blog.ollien.com/posts/gb-daa/
 
+        let offset = 0;
+        let A = Registers.A;
+
+        if ((!Registers.Fn && A & 0xF > 0x09) || Registers.Fh) {
+            offset |= 0x06;
+        }
+
+        if ((!Registers.Fn && A > 0x09) || Registers.Fc) {
+            offset |= 0x06;
+        }
+
+        if (!Registers.Fn) {
+            Registers.A = add8Bit(A, offset);
+        }
+        else {
+            Registers.A = subtract8Bit(A, offset);
+        }
+
+        Registers.Fz = !Registers.A;
+        Registers.Fh = Registers.A > 0x99;
+        Registers.Fc = 0;
+        Globals.cycleNumber += 1;
     },
     0x28: () => {
-
+        // If last operation was not zero
+        // PC += (signed) (PC++)
+        if (Registers.Fz) {
+            signedRelativeJump();
+        }
+        else {
+            Registers.PC++;
+            Globals.cycleNumber += 2;
+        }
     },
     0x29: () => {
-
+        // HL += HL
+        const HL = combineRegisters(Registers.H, Registers.L);
+        const result = add16Bit(HL, HL);
+        [Registers.H, Registers.L] = splitRegisters(result);
+        Globals.cycleNumber += 2;
     },
     0x2A: () => {
-
+        // A <- (HL)
+        Registers.A = gameboyRead(combineRegisters(Registers.H, Registers.L));
+        Globals.cycleNumber += 1;
     },
     0x2B: () => {
-
+        // HL--
+        const HL = combineRegisters(Registers.H, Registers.L);
+        [Registers.H, Registers.L] = splitRegisters(increment16Bit(HL));
+        Globals.cycleNumber += 2;
     },
     0x2C: () => {
-
+        // L++
+        Registers.L = increment8Bit(Registers.L);
+        Globals.cycleNumber += 1;
     },
     0x2D: () => {
-
+        // L--
+        Registers.L = decrement8Bit(Registers.L);
+        Globals.cycleNumber += 1;
     },
     0x2E: () => {
-
+        // L <- (PC)
+        Registers.L = gameboyRead(Registers.PC++);
+        Globals.cycleNumber += 2;
     },
     0x2F: () => {
-
+        // A = ~A
+        Registers.A ^= 0xFF;
+        Registers.Fn = 1;
+        Registers.Fh = 1;
+        Globals.cycleNumber += 1;
     },
     0x30: () => {
-
+        
     },
     0x31: () => {
 

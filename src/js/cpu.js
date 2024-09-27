@@ -240,6 +240,9 @@ function subtract16Bit(a, b) {
     return result;
 }
 
+/**
+ * Reads the next value in the ROM and jumps PC relatively via the read signed 8-bit integer
+ */
 function signedRelativeJump() {
     const jumpValue = gameboyRead(Registers.PC++);
     if (jumpValue & 0x80) {
@@ -250,6 +253,38 @@ function signedRelativeJump() {
         Registers.PC += jumpValue;
     }
     Globals.cycleNumber += 3;
+}
+
+/**
+ * Used for instructions 0x40-0x75 and 0x77-0x7F
+ * These instructions simply load values from registers or memory
+ * @param {number} instruction 
+ */
+function doLoadInstruction(instruction) {
+    let value;
+
+    switch (instruction & 0x07) {
+        case 0x0: value = Registers.B; break;
+        case 0x1: value = Registers.C; break;
+        case 0x2: value = Registers.D; break;
+        case 0x3: value = Registers.E; break;
+        case 0x4: value = Registers.H; break;
+        case 0x5: value = Registers.L; break;
+        case 0x6: value = gameboyRead(combineRegisters(Registers.H, Registers.L)); Globals.cycleNumber++; break;
+        case 0x7: value = Registers.A; break;
+    }
+
+    switch ((instruction >> 3) & 7) {
+        case 0x0: Registers.B == value; break;
+        case 0x1: Registers.C == value; break;
+        case 0x2: Registers.D == value; break;
+        case 0x3: Registers.E == value; break;
+        case 0x4: Registers.H == value; break;
+        case 0x5: Registers.L == value; break;
+        case 0x6: gameboyWrite(combineRegisters(Registers.H, Registers.L), value); Globals.cycleNumber++; break;
+        case 0x7: Registers.A == value; break;
+    }
+    Globals.cycleNumber++;
 }
 
 /**
@@ -322,7 +357,7 @@ const opcodeTable8Bit = {
     0x0B: () => {
         // BC--
         const BC = combineRegisters(Registers.B, Registers.C);
-        [Registers.B, Registers.C] = splitRegisters(increment16Bit(BC));
+        [Registers.B, Registers.C] = splitRegisters(decrement16Bit(BC));
         Globals.cycleNumber += 2;
     },
     0x0C: () => {
@@ -419,7 +454,7 @@ const opcodeTable8Bit = {
     0x1B: () => {
         // DE--
         const DE = combineRegisters(Registers.D, Registers.E);
-        [Registers.D, Registers.E] = splitRegisters(increment16Bit(DE));
+        [Registers.D, Registers.E] = splitRegisters(decrement16Bit(DE));
         Globals.cycleNumber += 2;
     },
     0x1C: () => {
@@ -466,8 +501,13 @@ const opcodeTable8Bit = {
         Globals.cycleNumber += 3;
     },
     0x22: () => {
-        // (HL) <- A
+        // (HL+) <- A
+        // Write, then increment HL
         gameboyWrite(combineRegisters(Registers.H, Registers.L), Registers.A);
+        Registers.L = mod(Registers.L + 1, BYTE_VALUES.UINT_8_MAX + 1);
+        if (!(Registers.L)) {
+            Registers.H = mod(Registers.H + 1, BYTE_VALUES.UINT_8_MAX + 1);
+        }
         Globals.cycleNumber += 2;
     },
     0x23: () => {
@@ -537,14 +577,18 @@ const opcodeTable8Bit = {
         Globals.cycleNumber += 2;
     },
     0x2A: () => {
-        // A <- (HL)
+        // A <- (HL+)
         Registers.A = gameboyRead(combineRegisters(Registers.H, Registers.L));
-        Globals.cycleNumber += 1;
+        Registers.L = mod(Registers.L + 1, BYTE_VALUES.UINT_8_MAX + 1);
+        if (!(Registers.L)) {
+            Registers.H = mod(Registers.H + 1, BYTE_VALUES.UINT_8_MAX + 1);
+        }
+        Globals.cycleNumber += 2;
     },
     0x2B: () => {
         // HL--
         const HL = combineRegisters(Registers.H, Registers.L);
-        [Registers.H, Registers.L] = splitRegisters(increment16Bit(HL));
+        [Registers.H, Registers.L] = splitRegisters(decrement16Bit(HL));
         Globals.cycleNumber += 2;
     },
     0x2C: () => {
@@ -570,244 +614,308 @@ const opcodeTable8Bit = {
         Globals.cycleNumber += 1;
     },
     0x30: () => {
-        
+        // If carry bit is zero
+        // PC += (signed) (PC++)
+        if (!Registers.Fc) {
+            signedRelativeJump();
+        }
+        else {
+            Registers.PC++;
+            Globals.cycleNumber += 2;
+        }
     },
     0x31: () => {
 
     },
     0x32: () => {
-
+        // (HL-) <- A
+        // Write, then decrement HL
+        gameboyWrite(combineRegisters(Registers.H, Registers.L), Registers.A);
+        Registers.L = mod(Registers.L - 1, BYTE_VALUES.UINT_8_MAX + 1);
+        if (!(Registers.L)) {
+            Registers.H = mod(Registers.H - 1, BYTE_VALUES.UINT_8_MAX + 1);
+        }
+        Globals.cycleNumber += 2;
     },
     0x33: () => {
-
+        // SP++
+        Registers.SP++;
+        Globals.cycleNumber += 2;
     },
     0x34: () => {
-
+        // (HL)++
+        let value = gameboyRead(combineRegisters(Registers.H, Registers.L));
+        value = increment16Bit(value);
+        gameboyWrite(value, combineRegisters(Registers.H, Registers.L));
+        Globals.cycleNumber += 2;
     },
     0x35: () => {
-
+        // (HL)--
+        let value = gameboyRead(combineRegisters(Registers.H, Registers.L));
+        value = decrement16Bit(value);
+        gameboyWrite(value, combineRegisters(Registers.H, Registers.L));
+        Globals.cycleNumber += 2;
     },
     0x36: () => {
-
+        // (HL) <- d8
+        gameboyWrite(combineRegisters(Registers.H, Registers.L), gameboyRead(Registers.PC++));
+        Globals.cycleNumber += 3;
     },
     0x37: () => {
-
+        // Fc = 1
+        Registers.Fc = 1;
+        Globals.cycleNumber += 1;
     },
     0x38: () => {
-
+        // If CY flag aka Fc is set
+        // PC += (signed) (PC++)
+        if (Registers.Fz) {
+            signedRelativeJump();
+        }
+        else {
+            Registers.PC++;
+            Globals.cycleNumber += 2;
+        }
     },
     0x39: () => {
-
+        // HL += SP
+        const HL = combineRegisters(Registers.H, Registers.L);
+        const SP = Registers.SP;
+        const result = add16Bit(HL, SP);
+        [Registers.H, Registers.L] = splitRegisters(result);
+        Globals.cycleNumber += 2;
     },
     0x3A: () => {
-
+        // A <- (HL-)
+        Registers.A = gameboyRead(combineRegisters(Registers.H, Registers.L));
+        Registers.L = mod(Registers.L - 1, BYTE_VALUES.UINT_8_MAX + 1);
+        if (!(Registers.L)) {
+            Registers.H = mod(Registers.H - 1, BYTE_VALUES.UINT_8_MAX + 1);
+        }
+        Globals.cycleNumber += 2;
     },
     0x3B: () => {
-
+        // SP--
+        const SP = Registers.SP;
+        Registers.SP = decrement16Bit(SP);
+        Globals.cycleNumber += 2;
     },
     0x3C: () => {
-
+        // A++
+        Registers.A = increment8Bit(Registers.A);
+        Globals.cycleNumber += 1;
     },
     0x3D: () => {
-
+        // A--
+        Registers.A = decrement8Bit(Registers.A);
+        Globals.cycleNumber += 1;
     },
     0x3E: () => {
-
+        // A <- (PC)
+        Registers.A = gameboyRead(Registers.PC++);
+        Globals.cycleNumber += 2;
     },
     0x3F: () => {
-
+        // Flip carry flag
+        Registers.Fz = !Registers.Fz;
+        Registers.Fn = 0;
+        Registers.Fh = 0;
+        Globals.cycleNumber++;
     },
     0x40: () => {
-
+        doLoadInstruction(0x40);
     },
     0x41: () => {
-
+        doLoadInstruction(0x41);
     },
     0x42: () => {
-
+        doLoadInstruction(0x42);
     },
     0x43: () => {
-
+        doLoadInstruction(0x43);
     },
     0x44: () => {
-
+        doLoadInstruction(0x44);
     },
     0x45: () => {
-
+        doLoadInstruction(0x45);
     },
     0x46: () => {
-
+        doLoadInstruction(0x46);
     },
     0x47: () => {
-
+        doLoadInstruction(0x47);
     },
     0x48: () => {
-
+        doLoadInstruction(0x48);
     },
     0x49: () => {
-
+        doLoadInstruction(0x49);
     },
     0x4A: () => {
-
+        doLoadInstruction(0x4A);
     },
     0x4B: () => {
-
+        doLoadInstruction(0x4B);
     },
     0x4C: () => {
-
+        doLoadInstruction(0x4C);
     },
     0x4D: () => {
-
+        doLoadInstruction(0x4D);
     },
     0x4E: () => {
-
+        doLoadInstruction(0x4E);
     },
     0x4F: () => {
-
+        doLoadInstruction(0x4F);
     },
     0x50: () => {
-
+        doLoadInstruction(0x50);
     },
     0x51: () => {
-
+        doLoadInstruction(0x51);
     },
     0x52: () => {
-
+        doLoadInstruction(0x52);
     },
     0x53: () => {
-
+        doLoadInstruction(0x53);
     },
     0x54: () => {
-
+        doLoadInstruction(0x54);
     },
     0x55: () => {
-
+        doLoadInstruction(0x55);
     },
     0x56: () => {
-
+        doLoadInstruction(0x56);
     },
     0x57: () => {
-
+        doLoadInstruction(0x57);
     },
     0x58: () => {
-
+        doLoadInstruction(0x58);
     },
     0x59: () => {
-
+        doLoadInstruction(0x59);
     },
     0x5A: () => {
-
+        doLoadInstruction(0x5A);
     },
     0x5B: () => {
-
+        doLoadInstruction(0x5B);
     },
     0x5C: () => {
-
+        doLoadInstruction(0x5C);
     },
     0x5D: () => {
-
+        doLoadInstruction(0x5D);
     },
     0x5E: () => {
-
+        doLoadInstruction(0x5E);
     },
     0x5F: () => {
-
+        doLoadInstruction(0x5F);
     },
     0x60: () => {
-
+        doLoadInstruction(0x60);
     },
     0x61: () => {
-
+        doLoadInstruction(0x61);
     },
     0x62: () => {
-
+        doLoadInstruction(0x62);
     },
     0x63: () => {
-
+        doLoadInstruction(0x63);
     },
     0x64: () => {
-
+        doLoadInstruction(0x64);
     },
     0x65: () => {
-
+        doLoadInstruction(0x65);
     },
     0x66: () => {
-
+        doLoadInstruction(0x66);
     },
     0x67: () => {
-
+        doLoadInstruction(0x67);
     },
     0x68: () => {
-
+        doLoadInstruction(0x68);
     },
     0x69: () => {
-
+        doLoadInstruction(0x69);
     },
     0x6A: () => {
-
+        doLoadInstruction(0x6A);
     },
     0x6B: () => {
-
+        doLoadInstruction(0x6B);
     },
     0x6C: () => {
-
+        doLoadInstruction(0x6C);
     },
     0x6D: () => {
-
+        doLoadInstruction(0x6D);
     },
     0x6E: () => {
-
+        doLoadInstruction(0x6E);
     },
     0x6F: () => {
-
+        doLoadInstruction(0x6F);
     },
     0x70: () => {
-
+        doLoadInstruction(0x70);
     },
     0x71: () => {
-
+        doLoadInstruction(0x71);
     },
     0x72: () => {
-
+        doLoadInstruction(0x72);
     },
     0x73: () => {
-
+        doLoadInstruction(0x73);
     },
     0x74: () => {
-
+        doLoadInstruction(0x74);
     },
     0x75: () => {
-
+        doLoadInstruction(0x75);
     },
     0x76: () => {
-
+        // TODO
+        // HALT
+        Globals.halted = true;
+        Globals.cycleNumber++;
     },
     0x77: () => {
-
+        doLoadInstruction(0x77);
     },
     0x78: () => {
-
+        doLoadInstruction(0x78);
     },
     0x79: () => {
-
+        doLoadInstruction(0x79);
     },
     0x7A: () => {
-
+        doLoadInstruction(0x7A);
     },
     0x7B: () => {
-
+        doLoadInstruction(0x7B);
     },
     0x7C: () => {
-
+        doLoadInstruction(0x7C);
     },
     0x7D: () => {
-
+        doLoadInstruction(0x7D);
     },
     0x7E: () => {
-
+        doLoadInstruction(0x7E);
     },
     0x7F: () => {
-
+        doLoadInstruction(0x7F);
     },
     0x80: () => {
 

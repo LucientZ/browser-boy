@@ -38,10 +38,18 @@ const ROMHeaderAddresses = Object.freeze({
 
 /**
  * @typedef GlobalVariables
- * @property {ROMMetadata} metadata
- * @property {Uint8Array | null} ROM
- * @property {Uint8Array | null} cartridgeRAM
- * @property {number} cycleNumber
+ * @prop {ROMMetadata} metadata
+ * @prop {Uint8Array | null} ROM              Contains the bytes in the rom. Can be addressed directly
+ * @prop {"MBC1" | "MBC2" | "MBC3" | "MBC5" | "MBC6" | "MBC7" | "MMM01" | "M161" | "HuC1" | "HuC3" | null} MBC Type of Memory Bank Controller in ROM
+ * @prop {number}            selectedROMBank  Selects which ROM bank the gameboy will read from
+ * @prop {number}            selectedRAMBank  Selects which ROM bank the gameboy will read/write from
+ * @prop {Uint8Array}        RAM              32 KiB of RAM
+ * @prop {Uint8Array}        VRAM0            32 KiB of VRAM
+ * @prop {Uint8Array}        VRAM1            32 KiB of VRAM (For Gameboy Color)
+ * @prop {Uint8Array | null} cartridgeRAM     RAM on the cartridge itself. Size is specified in the ROM header
+ * @prop {number}            cycleNumber      How many cycles the gameboy has gone through.
+ * @prop {boolean}           halted           Halt is called. Low power mode where the CPU stops until an interrupt
+ * @prop {boolean}           standby          Very low power mode. Very low power mode
  * 
  */
 
@@ -59,6 +67,13 @@ const Globals = {
         RAMBankNum: 0,
     },
     ROM: null,
+    MBC: null,
+    RAM: new Uint8Array(32 * BYTE_VALUES.KiB),
+    VRAM0: new Uint8Array(32 * BYTE_VALUES.KiB),
+    VRAM1: new Uint8Array(32 * BYTE_VALUES.KiB),
     cartridgeRAM: null,
     cycleNumber: 0,
+    stopped: false,
+    standby: false,
+    selectedROMBank: 1,
 }

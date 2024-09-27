@@ -140,6 +140,59 @@ function parseROM(rom) {
             throw new Error("Invalid ROM (Invalid RAM size given)");
     }
 
+    // MBC type
+    // https://gbdev.io/pandocs/The_Cartridge_Header.html#0147--cartridge-type
+    switch (Globals.ROM[ROMHeaderAddresses.CARTRIDGE_TYPE]) {
+        case 0x00:
+        case 0x08:
+        case 0x09:
+            Globals.MBC = null;
+            break;
+        case 0x01:
+        case 0x02:
+        case 0x03:
+            Globals.MBC = "MBC1";
+            break;
+        case 0x05:
+        case 0x06:
+            Globals.MBC = "MBC2";
+            break;
+        case 0x0B:
+        case 0x0C:
+        case 0x0D:
+            Globals.MBC = "MMM01";
+            break;
+        case 0x0F:
+        case 0x10:
+        case 0x11:
+        case 0x12:
+        case 0x13:
+            Globals.MBC = "MBC3";
+            break;
+        case 0x19:
+        case 0x1A:
+        case 0x1B:
+        case 0x1C:
+        case 0x1D:
+        case 0x1E:
+            Globals.MBC = "MBC5";
+            break;
+        case 0x20:
+            Globals.MBC = "MBC6";
+            break;
+        case 0x22:
+            Globals.MBC = "MBC7";
+            break;
+        case 0xFE:
+            Globals.MBC = "HuC3"
+            break;
+        case 0xFF:
+            Globals.MBC = "HuC1"
+            break;
+        default:
+            throw new Error("Unsupported cartridge type");
+    }
+
     // Flags
     Globals.metadata.supportsColor = (Globals.ROM[ROMHeaderAddresses.CGB_FLAG] & 0x80) != 0;
     Globals.metadata.supportsSGB = Globals.ROM[ROMHeaderAddresses.SGB_FLAG] == 0x03;

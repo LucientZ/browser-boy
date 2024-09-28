@@ -357,8 +357,8 @@ const opcodeTable8Bit = {
     },
     0x07: () => {
         // RLCA
-        Registers.Fc = A >> 0x7;
-        Registers.A = (A << 1) + Registers.Fc;
+        Registers.Fc = A >> 7;
+        Registers.A = ((A << 1) + Registers.Fc) & 0xFF;
         Registers.Fz = 0;
         Registers.Fn = 0;
         Registers.Fh = 0;
@@ -409,7 +409,7 @@ const opcodeTable8Bit = {
         // RRCA
         Registers.Fc = Registers.A & 0x1;
         Registers.A = Registers.A >> 1;
-        Registers.A += (Registers.Fc << 7);
+        Registers.A |= (Registers.Fc << 7);
         Registers.Fz = 0;
         Registers.Fn = 0;
         Registers.Fh = 0;
@@ -457,8 +457,8 @@ const opcodeTable8Bit = {
     0x17: () => {
         // RLA
         const value = 2 * Registers.A + Registers.Fc;
-        Registers.Fc = value >> 8;
-        Registers.A = value;
+        Registers.Fc = Registers.A & 0x80;
+        Registers.A = value & 0xFF;
         Registers.Fz = 0;
         Registers.Fn = 0;
         Registers.Fh = 0;
@@ -504,10 +504,10 @@ const opcodeTable8Bit = {
     },
     0x1F: () => {
         // RRA
-        const value = Registers.Fc;
+        const oldFc = Registers.Fc;
         Registers.Fc = Registers.A & 0x1;
         Registers.A = Registers.A >> 1;
-        Registers.A += value << 7;
+        Registers.A |= oldFc << 7;
         Registers.Fz = 0;
         Registers.Fn = 0;
         Registers.Fh = 0;
@@ -973,63 +973,104 @@ function doNext16BitInstruction() {
     }
 
     // Perform operation on value
+    let oldFC = Registers.Fc;
     switch (instruction >> 3) {
         case 0x00: // RLC
+            Registers.Fc = value >> 7;
+            value = (value << 1 & 0xFF) & Registers.Fc;
+            Registers.Fz = !value;
+            Registers.Fn = 0;
+            Registers.Fh = 0;
             break;
         case 0x01: // RRC
+            Registers.Fc = value & 0x1;
+            value = (value >> 1) | (Registers.Fc << 7);
+            Registers.Fz = !value;
+            Registers.Fn = 0;
+            Registers.Fh = 0;
             break;
         case 0x02: // RL
+            Registers.Fc = value >> 7;
+            value = (value << 1) | oldFC;
+            Registers.Fz = !value;
+            Registers.Fn = 0;
+            Registers.Fh = 0;
             break;
         case 0x03: // RR
+            Registers.Fc = value & 0x01;
+            value = (value >> 1) | (oldFC << 7);
+            Registers.Fz = !value;
+            Registers.Fn = 0;
+            Registers.Fh = 0;
             break;
         case 0x04: // SLA
+            Registers.Fc = value >> 7;
+            value <<= 1;
+            Registers.Fz = !value;
+            Registers.Fn = 0;
+            Registers.Fh = 0;
             break;
         case 0x05: // SRA
+            Registers.Fc = value & 0x01;
+            value >>= 1;
+            Registers.Fz = !value;
+            Registers.Fn = 0;
+            Registers.Fh = 0;
             break;
         case 0x06: // SWAP
+            value = ((value << 4) & 0xFF) | (value >> 4);
+            Registers.Fc = 0;
+            Registers.Fz = !value;
+            Registers.Fn = 0;
+            Registers.Fh = 0;
             break;
-        case 0x07: // SRL
+            case 0x07: // SRL
+            Registers.Fc = value & 0x01;
+            value >>= 1;
+            Registers.Fz = !value;
+            Registers.Fn = 0;
+            Registers.Fh = 0;
             break;
         case 0x08: // BIT 0
             Registers.Fz = !(value & 0x01);
             Registers.Fn = 0;
             Registers.Fh = 1;
-            break;
+            return;
         case 0x09: // BIT 1
             Registers.Fz = !(value & 0x02);
             Registers.Fn = 0;
             Registers.Fh = 1;
-            break;
+            return;
         case 0x0A: // BIT 2
             Registers.Fz = !(value & 0x04);
             Registers.Fn = 0;
             Registers.Fh = 1;
-            break;
+            return;
         case 0x0B: // BIT 3
             Registers.Fz = !(value & 0x08);
             Registers.Fn = 0;
             Registers.Fh = 1;
-            break;
+            return;
         case 0x0C: // BIT 4
             Registers.Fz = !(value & 0x10);
             Registers.Fn = 0;
             Registers.Fh = 1;
-            break;
+            return;
         case 0x0D: // BIT 5
             Registers.Fz = !(value & 0x20);
             Registers.Fn = 0;
             Registers.Fh = 1;
-            break;
+            return;
         case 0x0E: // BIT 6
             Registers.Fz = !(value & 0x40);
             Registers.Fn = 0;
             Registers.Fh = 1;
-            break;
+            return;
         case 0x0F: // BIT 7
             Registers.Fz = !(value & 0x80);
             Registers.Fn = 0;
             Registers.Fh = 1;
-            break;
+            return;
         case 0x10: // RES 0
             value &= 0xFE;
             break;
@@ -1107,4 +1148,10 @@ function doNext8BitInstruction() {
     else {
         opcodeTable8Bit[instruction]();
     }
+
+    // Flag normalization to actual
+    Registers.Fc = Registers.Fc ? 1 : 0;
+    Registers.Fz = Registers.Fz ? 1 : 0;
+    Registers.Fh = Registers.Fh ? 1 : 0;
+    Registers.Fn = Registers.Fn ? 1 : 0;
 }

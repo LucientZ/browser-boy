@@ -959,8 +959,8 @@ function doNext16BitInstruction() {
     const instruction = gameboyRead(Registers.PC++);
     opcodeTable16Bit[instruction]();
 
+    // Get value
     let value;
-
     switch (instruction & 0x07) {
         case 0x0: value = Registers.B; break;
         case 0x1: value = Registers.C; break;
@@ -972,71 +972,124 @@ function doNext16BitInstruction() {
         case 0x7: value = Registers.A; break;
     }
 
+    // Perform operation on value
     switch (instruction >> 3) {
-        case 0x00:
+        case 0x00: // RLC
             break;
-        case 0x01:
+        case 0x01: // RRC
             break;
-        case 0x02:
+        case 0x02: // RL
             break;
-        case 0x03:
+        case 0x03: // RR
             break;
-        case 0x04:
+        case 0x04: // SLA
             break;
-        case 0x05:
+        case 0x05: // SRA
             break;
-        case 0x06:
+        case 0x06: // SWAP
             break;
-        case 0x07:
+        case 0x07: // SRL
             break;
-        case 0x08:
+        case 0x08: // BIT 0
+            Registers.Fz = !(value & 0x01);
+            Registers.Fn = 0;
+            Registers.Fh = 1;
             break;
-        case 0x09:
+        case 0x09: // BIT 1
+            Registers.Fz = !(value & 0x02);
+            Registers.Fn = 0;
+            Registers.Fh = 1;
             break;
-        case 0x0A:
+        case 0x0A: // BIT 2
+            Registers.Fz = !(value & 0x04);
+            Registers.Fn = 0;
+            Registers.Fh = 1;
             break;
-        case 0x0B:
+        case 0x0B: // BIT 3
+            Registers.Fz = !(value & 0x08);
+            Registers.Fn = 0;
+            Registers.Fh = 1;
             break;
-        case 0x0C:
+        case 0x0C: // BIT 4
+            Registers.Fz = !(value & 0x10);
+            Registers.Fn = 0;
+            Registers.Fh = 1;
             break;
-        case 0x0D:
+        case 0x0D: // BIT 5
+            Registers.Fz = !(value & 0x20);
+            Registers.Fn = 0;
+            Registers.Fh = 1;
             break;
-        case 0x0E:
+        case 0x0E: // BIT 6
+            Registers.Fz = !(value & 0x40);
+            Registers.Fn = 0;
+            Registers.Fh = 1;
             break;
-        case 0x0F:
+        case 0x0F: // BIT 7
+            Registers.Fz = !(value & 0x80);
+            Registers.Fn = 0;
+            Registers.Fh = 1;
             break;
-        case 0x10:
+        case 0x10: // RES 0
+            value &= 0xFE;
             break;
-        case 0x11:
+        case 0x11: // RES 1
+            value &= 0xFD;
             break;
-        case 0x12:
+        case 0x12: // RES 2
+            value &= 0xFB;
             break;
-        case 0x13:
+        case 0x13: // RES 3
+            value &= 0xF7;
             break;
-        case 0x14:
+        case 0x14: // RES 4
+            value &= 0xEF;
             break;
-        case 0x15:
+        case 0x15: // RES 5
+            value &= 0xDF;
             break;
-        case 0x16:
+        case 0x16: // RES 6
+            value &= 0xBF;
             break;
-        case 0x17:
+        case 0x17: // RES 7
+            value &= 0x7F;
             break;
-        case 0x18:
+        case 0x18: // SET 0
+            value |= 0x01;
             break;
-        case 0x19:
+        case 0x19: // SET 1
+            value |= 0x02;
             break;
-        case 0x1A:
+        case 0x1A: // SET 2
+            value |= 0x04;
             break;
-        case 0x1B:
+        case 0x1B: // SET 3
+            value |= 0x08;
             break;
-        case 0x1C:
+        case 0x1C: // SET 4
+            value |= 0x10;
             break;
-        case 0x1D:
+        case 0x1D: // SET 5
+            value |= 0x20;
             break;
-        case 0x1E:
+        case 0x1E: // SET 6
+            value |= 0x40;
             break;
-        case 0x1F:
+        case 0x1F: // SET 7
+            value |= 0x80;
             break;
+    }
+
+    // Store value
+    switch ((instruction) & 7) {
+        case 0x0: Registers.B == value; break;
+        case 0x1: Registers.C == value; break;
+        case 0x2: Registers.D == value; break;
+        case 0x3: Registers.E == value; break;
+        case 0x4: Registers.H == value; break;
+        case 0x5: Registers.L == value; break;
+        case 0x6: gameboyWrite(combineRegisters(Registers.H, Registers.L), value); Globals.cycleNumber++; break;
+        case 0x7: Registers.A == value; break;
     }
 }
 

@@ -202,3 +202,9 @@ function parseROM(rom) {
 function stringifyROM(rom) {
 
 }
+
+setInterval(() => {
+    if (Globals.ROM && !Globals.halted && !Globals.standby) {
+        doNext8BitInstruction();
+    }
+}, 10);

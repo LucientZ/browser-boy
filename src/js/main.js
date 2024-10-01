@@ -29,6 +29,21 @@ async function dropHandler(event) {
         try {
             parseROM(Globals.ROM);
             document.getElementById("game-title").innerText = `${Globals.metadata.title} Version ${Globals.ROM[ROMHeaderAddresses.ROM_VERSION]}`;
+
+            // Reset Registers to defaults
+            Registers.A = 0x11;
+            Registers.Fz = 0x1;
+            Registers.Fn = 0x0;
+            Registers.Fh = 0x1;
+            Registers.Fc = 0x1;
+            Registers.B = 0x00;
+            Registers.C = 0x00;
+            Registers.D = 0x00;
+            Registers.E = 0x08;
+            Registers.H = 0x00;
+            Registers.L = 0x00;
+            Registers.SP = 0xFFFE;
+            Registers.PC = 0x0100;
         }
         catch (error) {
             alert(error);

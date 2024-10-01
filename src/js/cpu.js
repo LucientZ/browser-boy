@@ -785,7 +785,6 @@ const opcodeTable8Bit = {
     },
     // GAP of Load Instructions 0x40-0x75
     0x76: () => {
-        // TODO
         // HALT
         Globals.halted = true;
         Globals.cycleNumber++;
@@ -1028,7 +1027,7 @@ const opcodeTable8Bit = {
     0xF3: () => {
         // DI
         // Disable Interrupts
-        Globals.IME = false;
+        Globals.IME = 0;
         Globals.cycleNumber++;
     },
     0xF5: () => {
@@ -1057,7 +1056,7 @@ const opcodeTable8Bit = {
     0xFB: () => {
         // EI
         // Enable Interrupts
-        Globals.IME = true;
+        Globals.IME = 1;
         Globals.cycleNumber++;
     },
     0xFE: () => {
@@ -1259,6 +1258,7 @@ function doNext16BitInstruction() {
 
 function doNext8BitInstruction() {
     const instruction = gameboyRead(Registers.PC++);
+    // console.info(`0x${(Registers.PC-1).toString(16)}: ${instruction.toString(16)}`);
     if (instruction === 0xCB) {
         doNext16BitInstruction();
     }

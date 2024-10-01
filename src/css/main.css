@@ -3,3 +3,13 @@
     height: 20rem;
     width: 20rem;
 }
+
+#serial-output {
+    width: 100%;
+    min-height: 3vh;
+    margin: 1vw 1vh 1vw 1vh;
+    padding: 1vw 1vh 1vw 1vh;
+    word-wrap: break-word;
+    background-color: #1f2428;
+    color: #ffffff;
+}

@@ -14,10 +14,10 @@
  */
 const Registers = {
     A: 0x11,
-    Fz: 0x0, // Zero flag
+    Fz: 0x1, // Zero flag
     Fn: 0x0, // Subtraction flag
-    Fh: 0x0, // Half Carry flag
-    Fc: 0x0, // Carry flag
+    Fh: 0x1, // Half Carry flag
+    Fc: 0x1, // Carry flag
     B: 0x00,
     C: 0x00,
     D: 0x00,
@@ -158,7 +158,7 @@ function add16Bit(a, b) {
 function subtract8Bit(a, b) {
     Registers.Fh = (a & 0x0F) < (b & 0x0F);
     const result = mod(a - b, BYTE_VALUES.UINT_8_MAX + 1);
-    Registers.Fc = (result >> 8) & 1
+    Registers.Fc = (mod(a - b, BYTE_VALUES.UINT_16_MAX + 1) >> 8) & 1
     Registers.Fz = !result;
     Registers.Fn = 1;
     return result;
@@ -187,7 +187,8 @@ function doSignedRelativeJump() {
 }
 
 function doJump() {
-
+    Registers.PC = gameboyRead(Registers.PC) | (gameboyRead(Registers.PC + 1) << 8);
+    Globals.cycleNumber += 3;
 }
 
 /**
@@ -207,10 +208,8 @@ function doPop() {
  * Memory will be written in little endian order
 */
 function doPush(value) {
-    const leastSignificantByte = value && 0xFF;
-    const mostSignificantByte = (value >> 8);
-    gameboyWrite(--Registers.SP, mostSignificantByte);
-    gameboyWrite(--Registers.SP, leastSignificantByte);
+    gameboyWrite(--Registers.SP, (value >> 8));
+    gameboyWrite(--Registers.SP, value & 0xFF);
     Globals.cycleNumber += 4;
 }
 
@@ -225,14 +224,16 @@ function doCall(address = undefined) {
         Globals.cycleNumber += 2;
     }
 
-    gameboyWrite(Registers.SP--, Registers.PC >> 8);
-    gameboyWrite(Registers.SP--, Registers.PC & 0xFF);
+    gameboyWrite(--Registers.SP, Registers.PC >> 8);
+    gameboyWrite(--Registers.SP, Registers.PC & 0xFF);
     Registers.PC = address;
     Globals.cycleNumber += 3;
 }
 
 function doReturn() {
-
+    Registers.PC = gameboyRead(Registers.SP) | (gameboyRead(Registers.SP + 1) << 8);
+    Registers.SP += 2;
+    Globals.cycleNumber += 3;
 }
 
 
@@ -255,15 +256,16 @@ function doLoadInstruction(instruction) {
         case 0x7: value = Registers.A; break;
     }
 
+
     switch ((instruction >> 3) & 7) {
-        case 0x0: Registers.B == value; break;
-        case 0x1: Registers.C == value; break;
-        case 0x2: Registers.D == value; break;
-        case 0x3: Registers.E == value; break;
-        case 0x4: Registers.H == value; break;
-        case 0x5: Registers.L == value; break;
+        case 0x0: Registers.B = value; break;
+        case 0x1: Registers.C = value; break;
+        case 0x2: Registers.D = value; break;
+        case 0x3: Registers.E = value; break;
+        case 0x4: Registers.H = value; break;
+        case 0x5: Registers.L = value; break;
         case 0x6: gameboyWrite(combineRegisters(Registers.H, Registers.L), value); Globals.cycleNumber++; break;
-        case 0x7: Registers.A == value; break;
+        case 0x7: Registers.A = value; break;
     }
     Globals.cycleNumber++;
 }
@@ -276,7 +278,7 @@ function doLoadInstruction(instruction) {
 function doArithmeticInstruction(instruction) {
     let value;
 
-    if (instruction in [0xC6, 0xCE, 0xD6, 0xDE, 0xE6, 0xEE, 0xF6, 0xFE]) {
+    if ([0xC6, 0xCE, 0xD6, 0xDE, 0xE6, 0xEE, 0xF6, 0xFE].includes(instruction)) {
         value = gameboyRead(Registers.PC++);
         Globals.cycleNumber++;
     }
@@ -444,8 +446,9 @@ const opcodeTable8Bit = {
     },
     0x10: () => {
         // STOP
-        if (gameboyRead(Globals.PC) !== undefined) {
+        if (Globals.HRAM[0x4D]) {
             Globals.standby = true;
+            Globals.HRAM[0x4D] = 0;
         }
         Globals.cycleNumber += 1;
     },
@@ -682,7 +685,8 @@ const opcodeTable8Bit = {
         }
     },
     0x31: () => {
-
+        Registers.SP = gameboyRead(Registers.PC++) | (gameboyRead(Registers.PC++) << 8);
+        Globals.cycleNumber += 2;
     },
     0x32: () => {
         // (HL-) <- A
@@ -931,7 +935,7 @@ const opcodeTable8Bit = {
         }
     },
     0xD9: () => {
-        // TODO RETI
+        // RETI
         Globals.IME = 1;
         doReturn();
     },
@@ -952,7 +956,7 @@ const opcodeTable8Bit = {
         doCall(0x18);
     },
     0xE0: () => {
-        // LD (a8), A
+        // LD (0xFF00 + a8), A
         // IO Operation
         writeIO(gameboyRead(Registers.PC++), Registers.A);
         Globals.cycleNumber += 3;
@@ -991,6 +995,7 @@ const opcodeTable8Bit = {
         // LD (a16), A
         const address = gameboyRead(Registers.PC++) | (gameboyRead(Registers.PC++) << 8);
         gameboyWrite(address, Registers.A);
+        Globals.cycleNumber += 2;
     },
     0xEE: () => {
         doArithmeticInstruction(0xEE);
@@ -1000,7 +1005,7 @@ const opcodeTable8Bit = {
         doCall(0x28);
     },
     0xF0: () => {
-        // LD A, (a16)
+        // LD A, (a8)
         // IO operation
         Registers.A = readIO(gameboyRead(Registers.PC++));
         Globals.cycleNumber += 2;
@@ -1046,7 +1051,8 @@ const opcodeTable8Bit = {
         Globals.cycleNumber += 3;
     },
     0xFA: () => {
-        Registers.A = gameboyRead();
+        Registers.A = gameboyRead(gameboyRead(Registers.PC++) | (gameboyRead(Registers.PC++) << 8));
+        Globals.cycleNumber += 4;
     },
     0xFB: () => {
         // EI
@@ -1065,7 +1071,6 @@ const opcodeTable8Bit = {
 
 function doNext16BitInstruction() {
     const instruction = gameboyRead(Registers.PC++);
-    opcodeTable16Bit[instruction]();
 
     // Get value
     let value;
@@ -1239,14 +1244,14 @@ function doNext16BitInstruction() {
 
     // Store value
     switch ((instruction) & 7) {
-        case 0x0: Registers.B == value; break;
-        case 0x1: Registers.C == value; break;
-        case 0x2: Registers.D == value; break;
-        case 0x3: Registers.E == value; break;
-        case 0x4: Registers.H == value; break;
-        case 0x5: Registers.L == value; break;
+        case 0x0: Registers.B = value; break;
+        case 0x1: Registers.C = value; break;
+        case 0x2: Registers.D = value; break;
+        case 0x3: Registers.E = value; break;
+        case 0x4: Registers.H = value; break;
+        case 0x5: Registers.L = value; break;
         case 0x6: gameboyWrite(combineRegisters(Registers.H, Registers.L), value); Globals.cycleNumber++; break;
-        case 0x7: Registers.A == value; break;
+        case 0x7: Registers.A = value; break;
     }
 
     Globals.cycleNumber += 2;
@@ -1267,8 +1272,9 @@ function doNext8BitInstruction() {
         try {
             opcodeTable8Bit[instruction]();
         }
-        catch (error){
-            throw new Error(`Invalid Opcode: 0x${instruction.toString(16)} at address 0x${Registers.PC.toString(16)}`)
+        catch (error) {
+            alert(error);
+            Globals.standby = true;
         }
     }
 

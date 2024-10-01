@@ -15,8 +15,16 @@
 </head>
 
 <body>
-    <h1 id="game-title">No Game Loaded</h1>
-    <div class="drop-zone" id="rom-drop-zone" ondrop="dropHandler(event);" ondragover="dragOverHandler(event);">Drop a file here!</div>
+    <div class="evenly-spaced-row">
+        <div>
+            <h1 id="game-title">No Game Loaded</h1>
+            <div class="drop-zone" id="rom-drop-zone" ondrop="dropHandler(event);" ondragover="dragOverHandler(event);">Drop a file here!</div>
+        </div>
+        <div>
+            <h1>Screen</h1>
+            <canvas id="game-screen" width="160" height="144"></canvas>
+        </div>
+    </div>
     <h2>Serial Output:</h2>
     <p id="serial-output"></p>
 </body>

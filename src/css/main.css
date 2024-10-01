@@ -1,3 +1,13 @@
+.evenly-spaced-row {
+    display: flex;
+    flex-direction: row;
+    justify-content: center;
+}
+
+.evenly-spaced-row>div {
+    flex: 1;
+}
+
 .drop-zone {
     background-color: #adadad;
     height: 20rem;
@@ -12,4 +22,8 @@
     word-wrap: break-word;
     background-color: #1f2428;
     color: #ffffff;
+}
+
+#game-screen {
+    background-color: black;
 }

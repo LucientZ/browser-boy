@@ -51,8 +51,8 @@ const ROMHeaderAddresses = Object.freeze({
  * @prop {boolean}           halted           Halt is called. Low power mode where the CPU stops until an interrupt
  * @prop {boolean}           standby          Very low power mode. Very low power mode
  * @prop {boolean}           doubleSpeed      Says whether or not the gameboy is 
- * @prop {number}            IME              Interrupt Master Enable flag. True if interrupts are enabled
- * @prop {number}            IE               Interrupt Enable flag. True if interrupts are enabled
+ * @prop {number}            IME              Interrupt Master Enable flag. 1 if interrupts are enabled
+ * @prop {number}            IE               Interrupt Enable flag. Says what interrupts are allowed to be called
  * @prop {string}            serialOutput     Characters outputted to serial port
  * 
  */

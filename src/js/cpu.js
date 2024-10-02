@@ -78,7 +78,7 @@ function splitRegisters(combined) {
  * @returns a + 1 mod 2^8
  */
 function increment8Bit(a) {
-    a = mod(a + 1, BYTE_VALUES.UINT_8_MAX + 1);
+    a = (a + 1) & 0xFF;
     Registers.Fz = !a;
     Registers.Fn = 0;
     Registers.Fh = !(a & 0x0F);
@@ -91,7 +91,7 @@ function increment8Bit(a) {
  * @returns a + 1 mod 2^16
  */
 function increment16Bit(a) {
-    a = mod(a + 1, BYTE_VALUES.UINT_16_MAX + 1);
+    a = (a + 1) & 0xFFFF;
     Registers.Fz = !a;
     Registers.Fn = 0;
     return a;
@@ -104,7 +104,7 @@ function increment16Bit(a) {
  */
 function decrement8Bit(a) {
     Registers.Fh = !(a & 0x0F);
-    a = mod(a - 1, BYTE_VALUES.UINT_8_MAX + 1);
+    a = (a - 1) & 0xFF;
     Registers.Fn = 1;
     Registers.Fz = !a;
     return a;
@@ -116,7 +116,7 @@ function decrement8Bit(a) {
  * @returns a - 1 mod 2^16
  */
 function decrement16Bit(a) {
-    a = mod(a - 1, BYTE_VALUES.UINT_16_MAX + 1);
+    a = (a - 1) & 0xFFFF;
     return a;
 }
 
@@ -128,7 +128,7 @@ function decrement16Bit(a) {
  */
 function add8Bit(a, b) {
     Registers.Fh = ((a * 0x0F) + (b & 0x0F)) >> 4;
-    const result = mod(a + b, BYTE_VALUES.UINT_8_MAX + 1);
+    const result = (a + b) & 0xFF;
     Registers.Fz = !result;
     Registers.Fn = 0;
     return result;
@@ -142,7 +142,7 @@ function add8Bit(a, b) {
  */
 function add16Bit(a, b) {
     Registers.Fh = ((a & 0x0FFFF) + (b & 0x0FFFF)) >> 12;
-    const result = mod(a + b, BYTE_VALUES.UINT_16_MAX + 1);
+    const result = (a + b) & 0xFFFF;
     Registers.Fz = !result;
     Registers.Fn = 0;
     Registers.Fc = (a + b) >> 16;
@@ -157,15 +157,15 @@ function add16Bit(a, b) {
  */
 function subtract8Bit(a, b) {
     Registers.Fh = (a & 0x0F) < (b & 0x0F);
-    const result = mod(a - b, BYTE_VALUES.UINT_8_MAX + 1);
-    Registers.Fc = (mod(a - b, BYTE_VALUES.UINT_16_MAX + 1) >> 8) & 1
+    const result = (a - b) & 0xFF;
+    Registers.Fc = (((a - b) & 0xFFFF) >> 8) & 1;
     Registers.Fz = !result;
     Registers.Fn = 1;
     return result;
 }
 
 function subtract16Bit(a, b) {
-    const result = mod(a + b, BYTE_VALUES.UINT_16_MAX + 1);
+    const result = (a - b) & 0xFFFF;
     Registers.Fz = !result;
     Registers.Fn = 1;
     return result;
@@ -177,7 +177,7 @@ function subtract16Bit(a, b) {
 function doSignedRelativeJump() {
     let jumpValue = gameboyRead(Registers.PC++);
     if (jumpValue & 0x80) {
-        jumpValue = mod(-jumpValue, Math.pow(2, 8));
+        jumpValue = (-jumpValue) & 0xFF;
         Registers.PC -= jumpValue;
     }
     else {
@@ -303,7 +303,7 @@ function doArithmeticInstruction(instruction) {
         case 1: // ADC
             Registers.Fh = ((Registers.A & 0x0F) + (value & 0x0F) + oldFc) >> 4;
             Registers.Fc = (Registers.A + value + oldFc) >> 8
-            Registers.A = mod(Registers.A + Registers.Fc + value, BYTE_VALUES.UINT_8_MAX + 1);
+            Registers.A = (Registers.A + Registers.Fc + value) & 0xFF;
             Registers.Fz = !Registers.A;
             Registers.Fn = 0;
             break;
@@ -313,7 +313,7 @@ function doArithmeticInstruction(instruction) {
         case 3: // SBC
             Registers.Fh = (Registers.A & 0x0F) < ((value & 0x0F) + oldFc);
             const result = Registers.A - Registers.Fc - value;
-            Registers.A = mod(result, BYTE_VALUES.UINT_8_MAX + 1);
+            Registers.A = result & 0xFF;
             Registers.Fc = (result >> 8) & 0x01;
             Registers.Fz = !Registers.A;
             Registers.Fn = 1;
@@ -446,8 +446,10 @@ const opcodeTable8Bit = {
     },
     0x10: () => {
         // STOP
+        // https://gbdev.io/pandocs/Reducing_Power_Consumption.html?highlight=STOP#using-the-stop-instruction
         if (Globals.HRAM[0x4D]) {
             // Globals.standby = true; // IDK what to do with this 'cause it's weirdly non-deterministic
+            Globals.doubleSpeed = !Globals.doubleSpeed; // Because Licensed ROMS only use this for toggling doubleSpeed, this is what this does
             Globals.HRAM[0x4D] = 0;
         }
         Globals.cycleNumber += 1;
@@ -562,11 +564,11 @@ const opcodeTable8Bit = {
     },
     0x22: () => {
         // (HL+) <- A
-        // Write, then increment HL
+        // Write, then increment HL without setting flags
         gameboyWrite(combineRegisters(Registers.H, Registers.L), Registers.A);
-        Registers.L = mod(Registers.L + 1, BYTE_VALUES.UINT_8_MAX + 1);
+        Registers.L = (Registers.L + 1) & 0xFF;
         if (!(Registers.L)) {
-            Registers.H = mod(Registers.H + 1, BYTE_VALUES.UINT_8_MAX + 1);
+            Registers.H = (Registers.H + 1) & 0xFF;
         }
         Globals.cycleNumber += 2;
     },
@@ -639,9 +641,9 @@ const opcodeTable8Bit = {
     0x2A: () => {
         // A <- (HL+)
         Registers.A = gameboyRead(combineRegisters(Registers.H, Registers.L));
-        Registers.L = mod(Registers.L + 1, BYTE_VALUES.UINT_8_MAX + 1);
+        Registers.L = (Registers.L + 1) & 0xFF;
         if (!(Registers.L)) {
-            Registers.H = mod(Registers.H + 1, BYTE_VALUES.UINT_8_MAX + 1);
+            Registers.H = (Registers.H + 1) & 0xFF;
         }
         Globals.cycleNumber += 2;
     },
@@ -690,11 +692,11 @@ const opcodeTable8Bit = {
     },
     0x32: () => {
         // (HL-) <- A
-        // Write, then decrement HL
+        // Write, then decrement HL without setting flags
         gameboyWrite(combineRegisters(Registers.H, Registers.L), Registers.A);
-        Registers.L = mod(Registers.L - 1, BYTE_VALUES.UINT_8_MAX + 1);
+        Registers.L = (Registers.L - 1) & 0xFF;
         if (!(Registers.L)) {
-            Registers.H = mod(Registers.H - 1, BYTE_VALUES.UINT_8_MAX + 1);
+            Registers.H = (Registers.H - 1) & 0xFF;
         }
         Globals.cycleNumber += 2;
     },
@@ -749,9 +751,9 @@ const opcodeTable8Bit = {
     0x3A: () => {
         // A <- (HL-)
         Registers.A = gameboyRead(combineRegisters(Registers.H, Registers.L));
-        Registers.L = mod(Registers.L - 1, BYTE_VALUES.UINT_8_MAX + 1);
+        Registers.L = (Registers.L - 1) & 0xFF;
         if (!(Registers.L)) {
-            Registers.H = mod(Registers.H - 1, BYTE_VALUES.UINT_8_MAX + 1);
+            Registers.H = (Registers.H - 1) & 0xFF;
         }
         Globals.cycleNumber += 2;
     },
@@ -991,7 +993,7 @@ const opcodeTable8Bit = {
         Registers.Fc = ((Registers.SP & 0xFF) + (value & 0xFF)) >> 8;
         Registers.Fn = 0;
         Registers.Fz = 0;
-        Registers.PC = mod(Registers.SP + value, BYTE_VALUES.UINT_16_MAX + 1);
+        Registers.PC = (Registers.SP + value) & 0xFFFF;
         Globals.cycleNumber += 3;
     },
     0xE9: () => {
@@ -1061,7 +1063,7 @@ const opcodeTable8Bit = {
         Registers.Fc = ((Registers.SP & 0xFF) + (value & 0xFF)) >> 8;
         Registers.Fn = 0;
         Registers.Fz = 0;
-        [Registers.H, Registers.L] = splitRegisters(mod(Registers.SP + value, BYTE_VALUES.UINT_16_MAX + 1));
+        [Registers.H, Registers.L] = splitRegisters((Registers.SP + value) & 0xFFFF);
         Globals.cycleNumber += 2;
     },
     0xF9: () => {

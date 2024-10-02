@@ -88,21 +88,12 @@ function readIO(addr) {
             return MBCRegisters.WRAMBankNumber;
         case 0xFF:
             return Globals.IE;
-        default:
-            if (addr >= 0x10 && addr <= 0x26) { // Audio
-                return 0xFF; // TODO
-            }
-            else if (addr >= 0x30 && addr <= 0x3F) { // Wave pattern
-                return 0xFF; // TODO
-            }
-            else if (addr >= 0x51 & addr <= 0x55) { // VRAM DMA
-                return 0xFF; // TODO
-            }
-            else if (addr >= 0x68 && addr <= 0x6B) { // BG / OBJ Palettes 
-                return 0xFF; // TODO
-            }
     }
 
+    // 0x10-0x26: Audio
+    // 0x30-0x3F: Wave pattern
+    // 0x51-0x55: VRAM DMA
+    // 0x68-0x6B: BG/OBJ Palettes
     return Globals.HRAM[addr];
 }
 
@@ -186,21 +177,12 @@ function writeIO(addr, val) {
         case 0xFF:
             Globals.IE = val;
             return;
-        default:
-            if (addr >= 0x10 && addr <= 0x26) { // Audio
-                return; // TODO
-            }
-            else if (addr >= 0x30 && addr <= 0x3F) { // Wave pattern
-                return; // TODO
-            }
-            else if (addr >= 0x51 & addr <= 0x55) { // VRAM DMA
-                return; // TODO
-            }
-            else if (addr >= 0x68 && addr <= 0x6B) { // BG / OBJ Palettes 
-                return; // TODO
-            }
     }
 
+    // 0x10-0x26: Audio
+    // 0x30-0x3F: Wave pattern
+    // 0x51-0x55: VRAM DMA
+    // 0x68-0x6B: BG/OBJ Palettes
     Globals.HRAM[addr] = val;
 }
 

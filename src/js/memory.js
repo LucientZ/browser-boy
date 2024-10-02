@@ -84,6 +84,8 @@ function readIO(addr) {
             return IORegisters.bootROMDisabled;
         case 0x70:
             return MBCRegisters.WRAMBankNumber;
+        case 0xFF:
+            return Globals.IE;
         default:
             if (addr >= 0x10 && addr <= 0x26) { // Audio
                 return 0xFF; // TODO
@@ -178,6 +180,9 @@ function writeIO(addr, val) {
             return;
         case 0x70:
             MBCRegisters.WRAMBankNumber = val;
+            return;
+        case 0xFF:
+            Globals.IE = val;
             return;
         default:
             if (addr >= 0x10 && addr <= 0x26) { // Audio

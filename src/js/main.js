@@ -214,8 +214,14 @@ function parseROM(rom) {
 
 }
 
-setInterval(() => {
+function doProgramIteration() {
     if (Globals.ROM && !Globals.halted && !Globals.standby) {
         doNext8BitInstruction();
     }
-}, 0);
+}
+
+setInterval(() => {
+    for (let i = 0; i < 1000; i++) {
+        doProgramIteration();        
+    }
+}, 5);

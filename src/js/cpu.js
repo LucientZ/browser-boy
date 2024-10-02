@@ -386,8 +386,8 @@ const opcodeTable8Bit = {
     },
     0x07: () => {
         // RLCA
-        Registers.Fc = A >> 7;
-        Registers.A = ((A << 1) + Registers.Fc) & 0xFF;
+        Registers.Fc = Registers.A >> 7;
+        Registers.A = ((Registers.A << 1) + Registers.Fc) & 0xFF;
         Registers.Fz = 0;
         Registers.Fn = 0;
         Registers.Fh = 0;
@@ -447,7 +447,7 @@ const opcodeTable8Bit = {
     0x10: () => {
         // STOP
         if (Globals.HRAM[0x4D]) {
-            Globals.standby = true;
+            // Globals.standby = true; // IDK what to do with this 'cause it's weirdly non-deterministic
             Globals.HRAM[0x4D] = 0;
         }
         Globals.cycleNumber += 1;
@@ -983,7 +983,16 @@ const opcodeTable8Bit = {
     },
     0xE8: () => {
         // ADD SP, s8
-        // TODO
+        let value = gameboyRead(Registers.PC++);
+        if (value >= 128) {
+            value -= 256;
+        }
+        Registers.Fh = ((Registers.SP & 0x0F) + (value & 0x0F)) >> 4;
+        Registers.Fc = ((Registers.SP & 0xFF) + (value & 0xFF)) >> 8;
+        Registers.Fn = 0;
+        Registers.Fz = 0;
+        Registers.PC = mod(Registers.SP + value, BYTE_VALUES.UINT_16_MAX + 1);
+        Globals.cycleNumber += 3;
     },
     0xE9: () => {
         // JP HL
@@ -1042,7 +1051,18 @@ const opcodeTable8Bit = {
         doCall(0x30);
     },
     0xF8: () => {
+        // LD HL, SP+s8
         // TODO
+        let value = gameboyRead(Registers.PC++);
+        if (value >= 128) {
+            value -= 256;
+        }
+        Registers.Fh = ((Registers.SP & 0x0F) + (value & 0x0F)) >> 4;
+        Registers.Fc = ((Registers.SP & 0xFF) + (value & 0xFF)) >> 8;
+        Registers.Fn = 0;
+        Registers.Fz = 0;
+        [Registers.H, Registers.L] = splitRegisters(mod(Registers.SP + value, BYTE_VALUES.UINT_16_MAX + 1));
+        Globals.cycleNumber += 2;
     },
     0xF9: () => {
         // LD SP, HL

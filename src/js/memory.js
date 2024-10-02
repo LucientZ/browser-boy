@@ -1,9 +1,11 @@
 const MBCRegisters = {
-    RAMEnable: 0,
-    ROMBankNumber: 1,
-    RAMBankNumber: 1,
-    WRAMBankNumber: 1,
-    bankingModeSelect: 0,
+    RAMEnable: 0x00,
+    ROMBankNumber: 0x01,
+    RAMBankNumber: 0x01,
+    WRAMBankNumber: 0x01,
+    bankingModeSelect: 0x00,
+    RTC: 0x00,
+    builtInRAM: null, // Initializes on start if this is an MBC2 cartridge
 }
 
 const IORegisters = {
@@ -14,11 +16,11 @@ const IORegisters = {
     timerCounter: 0x00,
     timerModulo: 0x00,
     timerControl: 0x00,
-    interruptFlag: 0x00, // Interrupt flag
+    interruptFlag: 0xE0, // Interrupt flag
     LCDC: 0x00, // LCD Control
     LY: 0x00, // LCD Y-coordinate
     LYC: 0x00, // LY Compare
-    LCDSTAT: 0x00, // LCD status
+    LCDSTAT: 0x80, // LCD status
     SCY: 0x00, // Background viewport Y
     SCX: 0x00, // Background viewport X
     WY: 0x00, // Window Y position
@@ -331,7 +333,7 @@ function readMBC1(addr) {
         return Globals.ROM[(addr - 0x4000) + MBCRegisters.ROMBankNumber * 16 * BYTE_VALUES.KiB];
     }
     else if (addr >= 0xA000 && addr <= 0xBFFF) {
-        // MBC 1 treats bank 0 as bank 1
+        // Treats bank 0 as bank 1
         if (MBCRegisters.ROMBankNumber == 0) {
             return Globals.cartridgeRAM[(addr - 0xA000) + 8 * BYTE_VALUES.KiB];
         }
@@ -368,6 +370,111 @@ function writeMBC1(addr, val) {
         generalWrite(addr, val);
     }
 }
+//// MBC 2 ////
+
+/**
+ * 
+ * @param {number} addr 
+ * @returns {number} value at address
+ */
+function readMBC2(addr) {
+    if (addr <= 0x3FFF) {
+        return Globals.ROM[addr];
+    }
+    else if (addr <= 0x7FFF) {
+        return Globals.ROM[(addr - 0x4000) + MBCRegisters.ROMBankNumber * 16 * BYTE_VALUES.KiB];
+    }
+    else if (addr >= 0xA000 && addr <= 0xA1FF) {
+        // Built-in RAM
+        // Only uses the lower 4 bits
+        return MBCRegisters.builtInRAM[addr - 0xA000] & 0x0F;
+    }
+    else if (addr >= 0xA200 && addr <= 0xBFFF) {
+        // Echo of previous block
+        return MBCRegisters.builtInRAM[(addr - 0xA200) & 0x1FF] & 0x0F
+    }
+
+    return generalRead(addr);
+}
+
+function writeMBC2(addr, val) {
+    if (addr <= 0x3FFF) {
+        if (addr & 0x80) {
+            MBCRegisters.ROMBankNumber = val;
+        }
+        else {
+            MBCRegisters.RAMEnable = val;
+        }
+    }
+    generalWrite(addr, val);
+}
+
+//// MBC 3 ////
+
+function readMBC3(addr) {
+    if (addr <= 0x3FFF) {
+        return Globals.ROM[addr];
+    }
+    else if (addr <= 0x7FFF) {
+        return Globals.ROM[(addr - 0x4000) + MBCRegisters.ROMBankNumber * 16 * BYTE_VALUES.KiB];
+    }
+    else if (addr >= 0xA000 && addr <= 0xBFFF) {
+        // MBC 3 will read/write to the real time clock if selecting a ram bank higher than 7
+        if (MBCRegisters.RAMBankNumber < 0x07) {
+            // Treats bank 0 as bank 1
+            if (MBCRegisters.ROMBankNumber == 0) {
+                return Globals.cartridgeRAM[(addr - 0xA000) + 8 * BYTE_VALUES.KiB];
+            }
+            else {
+                return Globals.cartridgeRAM[(addr - 0xA000) + MBCRegisters.ROMBankNumber * 8 * BYTE_VALUES.KiB];
+            }
+        }
+        else {
+            return MBCRegisters.RTC;
+        }
+    }
+
+    return generalRead(addr);
+}
+
+function writeMBC3(addr, val) {
+    if (addr <= 0x1FFF) {
+        MBCRegisters.RAMEnable = val;
+        return;
+    }
+    else if (addr <= 0x3FFF) {
+        MBCRegisters.ROMBankNumber = val;
+        return;
+    }
+    else if (addr <= 0x5FFF) {
+        MBCRegisters.RAMBankNumber = val;
+        return;
+    }
+    else if (addr <= 0x7FFF) {
+        // Latch Clock Data
+        // Unused in the emulator, but useful for reading time in an actual ROM
+        return;
+    }
+    else if (addr >= 0xA000 && addr <= 0xBFFF) {
+        // MBC 3 will read/write to the real time clock if selecting a ram bank higher than 7
+        if (MBCRegisters.RAMBankNumber < 0x07) {
+            // Treats bank 0 as bank 1
+            if (MBCRegisters.ROMBankNumber == 0) {
+                Globals.cartridgeRAM[(addr - 0xA000) + 8 * BYTE_VALUES.KiB] = val;
+                return;
+            }
+            else {
+                Globals.cartridgeRAM[(addr - 0xA000) + MBCRegisters.ROMBankNumber * 8 * BYTE_VALUES.KiB] = val;
+                return;
+            }
+        }
+        else {
+            MBCRegisters.RTC = val;
+            return;
+        }
+    }
+    generalWrite(addr, val);
+}
 
 /**
  * https://gbdev.io/pandocs/Memory_Map.html#memory-map
@@ -379,6 +486,10 @@ function readMem(addr) {
             return readMBCNone(addr);
         case "MBC1":
             return readMBC1(addr);
+        case "MBC2":
+            return readMBC2(addr);
+        case "MBC3":
+            return readMBC3(addr);
         default:
             throw new Error(`${Globals.MBC} not supported`);
     }
@@ -396,6 +507,12 @@ function writeMem(addr, val) {
             break;
         case "MBC1":
             writeMBC1(addr, val);
+            break;
+        case "MBC2":
+            writeMBC2(addr, val);
+            break;
+        case "MBC3":
+            writeMBC3(addr, val);
             break;
         default:
             throw new Error(`${Globals.MBC} not supported`);

@@ -1280,6 +1280,7 @@ function doNext16BitInstruction() {
 
 function doNext8BitInstruction() {
     const instruction = gameboyRead(Registers.PC++);
+    Globals.cycleNumber += 2;
     // console.info(`0x${(Registers.PC-1).toString(16)}: ${instruction.toString(16)}`);
     if (instruction === 0xCB) {
         doNext16BitInstruction();

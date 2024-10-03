@@ -20,11 +20,12 @@ async function dropHandler(event) {
                 Globals.ROM = new Uint8Array(await file.arrayBuffer());
             }
             else {
-                alert("Invalid ROM")
+                alert("Invalid ROM");
             }
         }
     }
 
+    Globals.halted = true;
     if (Globals.ROM) {
         try {
             parseROM(Globals.ROM);
@@ -49,6 +50,7 @@ async function dropHandler(event) {
             alert(error);
         }
     }
+    Globals.halted = false;
 }
 
 
@@ -171,6 +173,7 @@ function parseROM(rom) {
         case 0x05:
         case 0x06:
             Globals.MBC = "MBC2";
+            MBCRegisters.builtInRAM = new Uint8Array(512);
             break;
         case 0x0B:
         case 0x0C:
@@ -215,13 +218,26 @@ function parseROM(rom) {
 }
 
 function doProgramIteration() {
+    // TODO Implement Interrupts correctly
+
     if (Globals.ROM && !Globals.halted && !Globals.standby) {
         doNext8BitInstruction();
     }
 }
 
 setInterval(() => {
-    for (let i = 0; i < 1000; i++) {
-        doProgramIteration();        
+    if (Globals.ROM) {
+        for (let i = 0; i < 1000; i++) {
+            updateLCDFlags();
+            doTimerUpdate();
+            handleInterrupts();
+            doProgramIteration();
+        }
     }
 }, 5);
+
+clearVideoBuffer();
+
+setInterval(() => {
+    flushVideoBuffer();
+}, 16.74);

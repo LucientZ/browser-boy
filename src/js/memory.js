@@ -133,6 +133,10 @@ function writeIO(addr, val) {
             IORegisters.interruptFlag = val;
             return;
         case 0x40:
+            // Reset LY to 0 when lcd is turned off
+            if (IORegisters.LCDC & 0x80 && !(val & 0x80)) {
+                IORegisters.LY = 0;
+            }
             IORegisters.LCDC = val;
             return;
         case 0x41:

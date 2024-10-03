@@ -42,7 +42,7 @@ const ROMHeaderAddresses = Object.freeze({
  * @prop {Uint8Array | null} ROM              Contains the bytes in the rom. Can be addressed directly
  * @prop {"MBC1" | "MBC2" | "MBC3" | "MBC5" | "MBC6" | "MBC7" | "MMM01" | "M161" | "HuC1" | "HuC3" | null} MBC Type of Memory Bank Controller in ROM
  * @prop {Uint8Array}        RAM              32 KiB of RAM
- * @prop {Uint8Array}        OAM              Object Attribute Memory. Home of "structs"
+ * @prop {Uint8Array}        OAM              Object Attribute Memory. Home of objects to be displayed
  * @prop {Uint8Array}        HRAM             Small memory space used for certain flags
  * @prop {Uint8Array}        VRAM0            32 KiB of VRAM
  * @prop {Uint8Array}        VRAM1            32 KiB of VRAM (For Gameboy Color)

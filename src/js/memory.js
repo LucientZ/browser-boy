@@ -441,7 +441,11 @@ function writeMBC3(addr, val) {
         // Unused in the emulator, but useful for reading time in an actual ROM
         return;
     }
-    else if (addr >= 0xA000 && addr <= 0xBFFF) {
+    else if (addr <= 0x9FFF){
+        generalWrite(addr, val);
+        return;
+    }
+    else if (addr <= 0xBFFF) {
         // MBC 3 will read/write to the real time clock if selecting a ram bank higher than 7
         if (MBCRegisters.RAMBankNumber < 0x07) {
             // Treats bank 0 as bank 1

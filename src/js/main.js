@@ -27,6 +27,7 @@ async function dropHandler(event) {
 
     Globals.halted = true;
     if (Globals.ROM) {
+        clearVideoBuffer();
         try {
             parseROM(Globals.ROM);
             document.getElementById("game-title").innerText = `${Globals.metadata.title} Version ${Globals.ROM[ROMHeaderAddresses.ROM_VERSION]}`;
@@ -157,6 +158,8 @@ function parseROM(rom) {
             throw new Error("Invalid ROM (Invalid RAM size given)");
     }
 
+    Globals.cartridgeRAM = Globals.metadata.RAMSize ? new Uint8Array(Globals.metadata.RAMSize) : null;
+
     // MBC type
     // https://gbdev.io/pandocs/The_Cartridge_Header.html#0147--cartridge-type
     switch (Globals.ROM[ROMHeaderAddresses.CARTRIDGE_TYPE]) {
@@ -236,8 +239,5 @@ setInterval(() => {
     }
 }, 5);
 
-clearVideoBuffer();
-
-setInterval(() => {
-    flushVideoBuffer();
-}, 16.74);
+setInterval(flushVideoBuffer, 16.74);
+setInterval(updateVRAMInspector, 20);

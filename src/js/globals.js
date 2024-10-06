@@ -39,22 +39,22 @@ const ROMHeaderAddresses = Object.freeze({
 /**
  * @typedef GlobalVariables
  * @prop {ROMMetadata} metadata
- * @prop {Uint8Array | null} ROM              Contains the bytes in the rom. Can be addressed directly
+ * @prop {Uint8Array | null} ROM                Contains the bytes in the rom. Can be addressed directly
  * @prop {"MBC1" | "MBC2" | "MBC3" | "MBC5" | "MBC6" | "MBC7" | "MMM01" | "M161" | "HuC1" | "HuC3" | null} MBC Type of Memory Bank Controller in ROM
- * @prop {Uint8Array}        RAM              32 KiB of RAM
- * @prop {Uint8Array}        OAM              Object Attribute Memory. Home of objects to be displayed
- * @prop {Uint8Array}        HRAM             Small memory space used for certain flags
- * @prop {Uint8Array}        VRAM0            32 KiB of VRAM
- * @prop {Uint8Array}        VRAM1            32 KiB of VRAM (For Gameboy Color)
- * @prop {Uint8Array | null} cartridgeRAM     RAM on the cartridge itself. Size is specified in the ROM header
- * @prop {number}            cycleNumber      How many cycles the gameboy has gone through.
- * @prop {boolean}           halted           Halt is called. Low power mode where the CPU stops until an interrupt
- * @prop {boolean}           standby          Very low power mode. Very low power mode
- * @prop {boolean}           frozen           Program does not run because of the emulator saying to stop.
- * @prop {boolean}           doubleSpeed      Says whether or not the gameboy is 
- * @prop {number}            IME              Interrupt Master Enable flag. 1 if interrupts are enabled
- * @prop {number}            IE               Interrupt Enable flag. Says what interrupts are allowed to be called
- * @prop {string}            serialOutput     Characters outputted to serial port
+ * @prop {Uint8Array}        RAM                32 KiB of RAM
+ * @prop {Uint8Array}        OAM                Object Attribute Memory. Home of objects to be displayed
+ * @prop {Uint8Array}        HRAM               Small memory space used for certain flags
+ * @prop {Uint8Array}        VRAM0              32 KiB of VRAM
+ * @prop {Uint8Array}        VRAM1              32 KiB of VRAM (For Gameboy Color)
+ * @prop {Uint8Array | null} cartridgeRAM       RAM on the cartridge itself. Size is specified in the ROM header
+ * @prop {number}            cycleNumber        How many cycles the gameboy has gone through.
+ * @prop {boolean}           halted             Halt is called. Low power mode where the CPU stops until an interrupt
+ * @prop {boolean}           standby            Very low power mode. Very low power mode
+ * @prop {boolean}           frozen             Program does not run because of the emulator saying to stop.
+ * @prop {boolean}           doubleSpeed        Says whether or not the gameboy is 
+ * @prop {number}            IME                Interrupt Master Enable flag. 1 if interrupts are enabled
+ * @prop {number}            IE                 Interrupt Enable flag. Says what interrupts are allowed to be called
+ * @prop {string}            serialOutput       Characters outputted to serial port
  * 
  */
 
@@ -83,7 +83,7 @@ const Globals = {
     halted: false,
     standby: false,
     frozen: true,
-    serialOutput: "",
     IME: 0,
     IE: 0x01,
+    serialOutput: "",
 }

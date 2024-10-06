@@ -1323,7 +1323,7 @@ function doNext16BitInstruction() {
     Globals.cycleNumber += 2;
 }
 
-let breakpoints = [0xC2B5];
+let breakpoints = [0x51, 0xC2B5];
 
 function doNext8BitInstruction() {
     const instruction = gameboyRead(Registers.PC++);
@@ -1385,7 +1385,6 @@ function handleInterrupts() {
             IORegisters.interruptFlag &= ~0x02;
         }
         else if (interruptsToHandle & 0x04) { // Timer
-            console.log("Timer Handled");
             Registers.PC = 0x50;
             IORegisters.interruptFlag &= ~0x04;
         }

@@ -325,6 +325,11 @@ function doTimerUpdate() {
     const cycleDelta = Globals.cycleNumber - IOValues.timerCycles;
     IORegisters.divider = Globals.cycleNumber & 0xFF;
 
+    // Return if timer isn't enabled
+    if (!(IORegisters.timerControl & 0x04)) {
+        return;
+    }
+
     let timerIncrementPeriod; // In m-cycles
     switch (IORegisters.timerControl & 0x03) {
         case 0:

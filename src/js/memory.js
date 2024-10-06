@@ -20,7 +20,7 @@ const IORegisters = {
     LCDC: 0x00, // LCD Control
     LY: 0x00, // LCD Y-coordinate
     LYC: 0x00, // LY Compare
-    LCDSTAT: 0x80, // LCD status
+    STAT: 0x00, // LCD status
     SCY: 0x00, // Background viewport Y
     SCX: 0x00, // Background viewport X
     WY: 0x00, // Window Y position
@@ -61,7 +61,7 @@ function readIO(addr) {
         case 0x40:
             return IORegisters.LCDC;
         case 0x41:
-            return IORegisters.LCDSTAT;
+            return IORegisters.STAT;
         case 0x42:
             return IORegisters.SCY;
         case 0x43:
@@ -140,7 +140,7 @@ function writeIO(addr, val) {
             IORegisters.LCDC = val;
             return;
         case 0x41:
-            IORegisters.LCDSTAT = val;
+            IORegisters.STAT = val;
             return;
         case 0x42:
             IORegisters.SCY = val;
@@ -222,6 +222,9 @@ function generalRead(addr) {
     else if (addr >= 0xFE00 && addr <= 0xFE9F) {
         return Globals.OAM[addr - 0xFE00];
     }
+    else if (addr >= 0xFEA0 && addr <= 0xFEFF) {
+        return 0xFF;
+    }
 
     throw new Error(`Invalid read at 0x${addr.toString(16)}`);
 }
@@ -263,6 +266,9 @@ function generalWrite(addr, val) {
     }
     else if (addr >= 0xFE00 && addr <= 0xFE9F) {
         Globals.OAM[addr - 0xFE00] = val;
+        return;
+    }
+    else if (addr >= 0xFEA0 && addr <= 0xFEFF) {
         return;
     }
 
@@ -316,15 +322,15 @@ function readMBC1(addr) {
         return Globals.ROM[addr];
     }
     else if (addr <= 0x7FFF) {
-        return Globals.ROM[(addr - 0x4000) + MBCRegisters.ROMBankNumber * 16 * BYTE_VALUES.KiB];
+        return Globals.ROM[(addr - 0x4000) + (MBCRegisters.ROMBankNumber & 0x1F) * 16 * BYTE_VALUES.KiB];
     }
     else if (addr >= 0xA000 && addr <= 0xBFFF) {
         // Treats bank 0 as bank 1
-        if (MBCRegisters.ROMBankNumber == 0) {
+        if (MBCRegisters.RAMBankNumber == 0) {
             return Globals.cartridgeRAM[(addr - 0xA000) + 8 * BYTE_VALUES.KiB];
         }
         else {
-            return Globals.cartridgeRAM[(addr - 0xA000) + MBCRegisters.ROMBankNumber * 8 * BYTE_VALUES.KiB];
+            return Globals.cartridgeRAM[(addr - 0xA000) + MBCRegisters.RAMBankNumber * 8 * BYTE_VALUES.KiB];
         }
     }
 
@@ -341,7 +347,7 @@ function writeMBC1(addr, val) {
         MBCRegisters.RAMEnable = val;
     }
     else if (addr <= 0x3FFF) {
-        MBCRegisters.ROMBankNumber = val;
+        MBCRegisters.ROMBankNumber = val & 0x1F;
     }
     else if (addr <= 0x5FFF) {
         MBCRegisters.RAMBankNumber = val;
@@ -350,7 +356,7 @@ function writeMBC1(addr, val) {
         MBCRegisters.bankingModeSelect = val;
     }
     else if (addr >= 0xA000 && addr <= 0xBFFF) {
-        Globals.cartridgeRAM[(addr - 0xA000) + MBCRegisters.ROMBankNumber * 8 * BYTE_VALUES.KiB] = val;
+        Globals.cartridgeRAM[(addr - 0xA000) + MBCRegisters.RAMBankNumber * 8 * BYTE_VALUES.KiB] = val;
     }
     else {
         generalWrite(addr, val);
@@ -377,7 +383,7 @@ function readMBC2(addr) {
     }
     else if (addr >= 0xA200 && addr <= 0xBFFF) {
         // Echo of previous block
-        return MBCRegisters.builtInRAM[(addr - 0xA200) & 0x1FF] & 0x0F
+        return MBCRegisters.builtInRAM[(addr - 0xA200) & 0x1FF] & 0x0F;
     }
 
     return generalRead(addr);
@@ -387,10 +393,21 @@ function writeMBC2(addr, val) {
     if (addr <= 0x3FFF) {
         if (addr & 0x80) {
             MBCRegisters.ROMBankNumber = val;
+            return;
         }
         else {
             MBCRegisters.RAMEnable = val;
+            return;
         }
+    }
+    else if (addr >= 0xA000 && addr <= 0xA1FF) {
+        // Built-in RAM
+        // Only uses the lower 4 bits
+        return MBCRegisters.builtInRAM[addr - 0xA000] = val & 0x0F;
+    }
+    else if (addr >= 0xA200 && addr <= 0xBFFF) {
+        // Echo of previous block
+        return MBCRegisters.builtInRAM[(addr - 0xA200) & 0x1FF] = val & 0x0F;
     }
     generalWrite(addr, val);
 }
@@ -441,7 +458,7 @@ function writeMBC3(addr, val) {
         // Unused in the emulator, but useful for reading time in an actual ROM
         return;
     }
-    else if (addr <= 0x9FFF){
+    else if (addr <= 0x9FFF) {
         generalWrite(addr, val);
         return;
     }

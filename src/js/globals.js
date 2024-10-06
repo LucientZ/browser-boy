@@ -79,7 +79,7 @@ const Globals = {
     VRAM1: new Uint8Array(8 * BYTE_VALUES.KiB),
     cartridgeRAM: null,
     cycleNumber: 0,
-    stopped: false,
+    halted: true,
     standby: false,
     serialOutput: "",
     IME: 0,

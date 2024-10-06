@@ -28,6 +28,8 @@ const Registers = {
     PC: 0x0100, // Program counter
 }
 
+/////////////////////// CPU INSTRUCTIONS ///////////////////////
+
 /**
  * 
  * @param {number} addr 
@@ -94,7 +96,7 @@ function increment16Bit(a) {
     a = (a + 1) & 0xFFFF;
     Registers.Fz = !a;
     Registers.Fn = 0;
-    Registers.Fh = !(t8 & 0x0F);
+    Registers.Fh = !(a & 0x0F);
     return a;
 }
 
@@ -508,9 +510,9 @@ const opcodeTable8Bit = {
     },
     0x17: () => {
         // RLA
-        const value = 2 * Registers.A + Registers.Fc;
-        Registers.Fc = Registers.A & 0x80;
-        Registers.A = value & 0xFF;
+        const oldA = Registers.A;
+        Registers.A = ((Registers.A << 1) & 0xFF) | Registers.Fc;
+        Registers.Fc = oldA & 0x80;
         Registers.Fz = 0;
         Registers.Fn = 0;
         Registers.Fh = 0;
@@ -620,28 +622,29 @@ const opcodeTable8Bit = {
     0x27: () => {
         // DAA
         // https://blog.ollien.com/posts/gb-daa/
-
-        let offset = 0;
-        let A = Registers.A;
-
-        if ((!Registers.Fn && A & 0xF > 0x09) || Registers.Fh) {
-            offset |= 0x06;
-        }
-
-        if ((!Registers.Fn && A > 0x09) || Registers.Fc) {
-            offset |= 0x06;
-        }
+        // https://forums.nesdev.org/viewtopic.php?t=15944
+        // FIXME
 
         if (!Registers.Fn) {
-            Registers.A = add8Bit(A, offset);
+            if (Registers.Fc || Registers.A > 0x99) {
+                Registers.A = (Registers.A + 0x60) & 0xFF;
+                Registers.Fc = 1;
+            }
+            if (Registers.Fh || (Registers.A & 0x0F) > 0x09) {
+                Registers.A = (Registers.A + 0x06) & 0xFF;
+            }
         }
         else {
-            Registers.A = subtract8Bit(A, offset);
+            if (Registers.Fc) {
+                Registers.A = (Registers.A - 0x60) & 0xFF;
+            }
+            if (Registers.Fh) {
+                Registers.A = (Registers.A - 0x06) & 0xFF;
+            }
         }
 
         Registers.Fz = !Registers.A;
-        Registers.Fh = Registers.A > 0x99;
-        Registers.Fc = 0;
+        Registers.Fh = 0;
         Globals.cycleNumber += 1;
     },
     0x28: () => {
@@ -880,9 +883,11 @@ const opcodeTable8Bit = {
     },
     0xC8: () => {
         // RET Z
-        Registers.cycleNumber++;
         if (Registers.Fz) {
             doReturn();
+        }
+        else {
+            Registers.cycleNumber += 2;
         }
     },
     0xC9: () => {
@@ -955,6 +960,7 @@ const opcodeTable8Bit = {
         }
     },
     0xD5: () => {
+        // PUSH DE
         doPush(combineRegisters(Registers.D, Registers.E));
     },
     0xD6: () => {
@@ -1317,7 +1323,7 @@ function doNext16BitInstruction() {
     Globals.cycleNumber += 2;
 }
 
-let breakpoints = [];
+let breakpoints = [0x50];
 
 function doNext8BitInstruction() {
     const instruction = gameboyRead(Registers.PC++);
@@ -1353,5 +1359,47 @@ function doNext8BitInstruction() {
     }
     else if (Globals.halted) {
         console.log(`PC: 0x${Registers.PC.toString(16)}`);
+    }
+}
+
+/////////////////////// Interrupts ///////////////////////
+
+function handleInterrupts() {
+    const interruptsToHandle = Globals.IE & IORegisters.interruptFlag;
+    if (Globals.IME && interruptsToHandle) {
+        doPush(Registers.PC);
+
+        if (Globals.halted) {
+            Globals.halted = false;
+        }
+
+        // Moves program counter to various interrupt handlers
+        if (interruptsToHandle & 0x01) { // VBLANK
+            console.log("VBLANK Handled");
+            Registers.PC = 0x40;
+            IORegisters.interruptFlag &= ~0x01;
+        }
+        else if (interruptsToHandle & 0x02) { // LCD STAT
+            console.log("LCD STAT Handled");
+            Registers.PC = 0x48;
+            IORegisters.interruptFlag &= ~0x02;
+        }
+        else if (interruptsToHandle & 0x04) { // Timer
+            console.log("Timer Handled");
+            Registers.PC = 0x50;
+            IORegisters.interruptFlag &= ~0x04;
+        }
+        else if (interruptsToHandle & 0x08) { // Serial
+            console.log("Serial Handled");
+            Registers.PC = 0x58;
+            IORegisters.interruptFlag &= ~0x08;
+        }
+        else if (interruptsToHandle & 0x10) { // Joypad
+            console.log("Joypad Handled");
+            Registers.PC = 0x60;
+            IORegisters.interruptFlag &= ~0x10;
+        }
+        Globals.IME = 0;
+        Globals.cycleNumber += 2;
     }
 }

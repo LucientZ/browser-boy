@@ -3,6 +3,7 @@ const IOValues = {
     videoBuffer: new Uint16Array(144 * 160),
     defaultColorPalette: [0xFFFF, 0x7bde, 0x39ce, 0x0000], // Default color palette of the gameboy (DMG)
     timerCycles: 0x00,
+    nextPC: null, // NULL if there is no nextPC
 }
 
 /////////////////////// Screen Stuff ///////////////////////
@@ -346,47 +347,5 @@ function doTimerUpdate() {
             IORegisters.timerCounter = IORegisters.timerModulo;
         }
         IORegisters.interruptFlag |= 0x4;
-    }
-}
-
-/////////////////////// Interrupts ///////////////////////
-
-function handleInterrupts() {
-    const interruptsToHandle = Globals.IE & IORegisters.interruptFlag;
-    if (Globals.IME && interruptsToHandle) {
-        doPush(Registers.PC);
-
-        if (Globals.halted) {
-            Globals.halted = false;
-        }
-
-        // Moves program counter to various interrupt handlers
-        if (interruptsToHandle & 0x01) { // VBLANK
-            console.log("VBLANK Handled");
-            Registers.PC = 0x40;
-            IORegisters.interruptFlag &= ~0x01;
-        }
-        else if (interruptsToHandle & 0x02) { // LCD STAT
-            console.log("LCD STAT Handled");
-            Registers.PC = 0x48;
-            IORegisters.interruptFlag &= ~0x02;
-        }
-        else if (interruptsToHandle & 0x04) { // Timer
-            console.log("Timer Handled");
-            Registers.PC = 0x50;
-            IORegisters.interruptFlag &= ~0x04;
-        }
-        else if (interruptsToHandle & 0x08) { // Serial
-            console.log("Serial Handled");
-            Registers.PC = 0x58;
-            IORegisters.interruptFlag &= ~0x08;
-        }
-        else if (interruptsToHandle & 0x10) { // Joypad
-            console.log("Joypad Handled");
-            Registers.PC = 0x60;
-            IORegisters.interruptFlag &= ~0x10;
-        }
-        Globals.IME = 0;
-        Globals.cycleNumber += 2;
     }
 }

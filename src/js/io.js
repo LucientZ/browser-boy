@@ -1,7 +1,8 @@
 const IOValues = {
     LCDCycles: 0x00,
     videoBuffer: new Uint16Array(144 * 160),
-    defaultColorPalette: [0xFFFF, 0x7bde, 0x39ce, 0x0000], // Default color palette of the gameboy (DMG) 
+    defaultColorPalette: [0xFFFF, 0x7bde, 0x39ce, 0x0000], // Default color palette of the gameboy (DMG)
+    timerCycles: 0x00,
 }
 
 /////////////////////// Screen Stuff ///////////////////////
@@ -12,7 +13,7 @@ const IOValues = {
  * This will be optimized in the future
  * @param {number} x 
  * @param {number} y 
- * @param {number} color Must be 5-bit encoded 
+ * @param {number} color Must be little-endian 5-bit encoded (0b0bbbbbgggggrrrrr) 
  */
 function writePixelToScreen(x, y, color, ctx) {
     if (!ctx) {
@@ -25,9 +26,9 @@ function writePixelToScreen(x, y, color, ctx) {
 
     // Converts from 5-bit color to 8-bit color
     const colorCoefficient = 255 / 31;
-    const red = Math.floor(((color >> 11) & 0x1f) * colorCoefficient);
-    const green = Math.floor(((color >> 6) & 0x1f) * colorCoefficient);
-    const blue = Math.floor(((color >> 1) & 0x1f) * colorCoefficient);
+    const red = Math.floor((color & 0x1f) * colorCoefficient);
+    const green = Math.floor(((color >> 5) & 0x1f) * colorCoefficient);
+    const blue = Math.floor(((color >> 10) & 0x1f) * colorCoefficient);
 
     ctx.fillStyle = `rgb(${red} ${green} ${blue})`;
     ctx.fillRect(x, y, 1, 1);
@@ -118,13 +119,13 @@ function drawLCDLine(line) {
             // Used for tile data calcs
             const left = IORegisters.SCX;
             const right = (IORegisters.SCX + 159) % 256;
-            const tileY = Math.floor((IORegisters.SCY + line) / 8) % 31;
+            const tileY = (Math.floor((IORegisters.SCY + line) / 8)) % 32;
             let tileX;
 
             // Draw 21 tiles since 160/8 = 20 and there is one overflow tile
             let column = 0;
             for (let i = 0; i < 21; i++) {
-                tileX = ((Math.floor(IORegisters.SCX / 8)) + i) % 31;
+                tileX = ((Math.floor(IORegisters.SCX / 8)) + i) % 32;
                 const tileMapAddress = 0x9800 | (tileMapSelected << 10) | ((tileY << 5) & 0x1F) | (tileX & 0x1F);
                 const tileNumber = generalRead(tileMapAddress);
                 const tileRow = (IORegisters.SCY + line) % 8;
@@ -172,7 +173,7 @@ function drawLCDLine(line) {
  * Updates the LCD state and any interrupt flags depending on different circumstances.
  * Timings for each mode is simply the average amount of dots a mode takes divided by 4 (This is because I'm lazy).
  */
-function updateLCDFlags() {
+function doLCDUpdate() {
     /**
      * Changes the LCD mode and raises interrupt if that mode is selected in STAT
      * @param {number} mode 
@@ -182,23 +183,23 @@ function updateLCDFlags() {
         switch (mode) {
             case 0x00:
                 mask = 0x08;
-                IORegisters.LCDSTAT &= ~0x03;
+                IORegisters.STAT = IORegisters.STAT & 0xFC;
                 break;
             case 0x01:
                 mask = 0x10;
-                IORegisters.LCDSTAT = (IORegisters.LCDSTAT & 0xFC) | 0x01;
+                IORegisters.STAT = (IORegisters.STAT & 0xFC) | 0x01;
                 break;
             case 0x02:
                 mask = 0x20;
-                IORegisters.LCDSTAT = (IORegisters.LCDSTAT & 0xFC) | 0x02;
+                IORegisters.STAT = (IORegisters.STAT & 0xFC) | 0x02;
                 break;
             case 0x03:
                 mask = 0x40;
-                IORegisters.LCDSTAT |= 0x03;
+                IORegisters.STAT |= 0x03;
                 break;
         }
 
-        if (IORegisters.LCDSTAT & mask) {
+        if (IORegisters.STAT & mask) {
             IORegisters.interruptFlag |= 0x02;
         }
     }
@@ -209,7 +210,7 @@ function updateLCDFlags() {
     }
 
     if (IORegisters.LCDC & 0x80) { // Bit 7 means the LCD is enabled
-        switch (IORegisters.LCDSTAT & 0x03) { // https://gbdev.io/pandocs/Rendering.html#ppu-modes
+        switch (IORegisters.STAT & 0x03) { // https://gbdev.io/pandocs/Rendering.html#ppu-modes
             case 0x0: // HBLANK - Waiting until the end of a scanline
                 if (cycleDelta >= 36) {
                     IOValues.LCDCycles += Globals.doubleSpeed ? 72 : 36;
@@ -226,15 +227,15 @@ function updateLCDFlags() {
 
                     // Set LYC == LY Bit
                     if (IORegisters.LY == IORegisters.LYC) {
-                        IORegisters.LCDSTAT |= 0x04;
+                        IORegisters.STAT |= 0x04;
 
                         // Enable LCD Interrupt if mode LYC interrupt is selected
-                        if (IORegisters.LCDSTAT & 0x40) {
+                        if (IORegisters.STAT & 0x40) {
                             IORegisters.interruptFlag |= 0x02;
                         }
                     }
                     else {
-                        IORegisters.LCDSTAT &= 0xFB;
+                        IORegisters.STAT &= 0xFB;
                     }
                 }
                 break;
@@ -250,22 +251,22 @@ function updateLCDFlags() {
 
                     // Set LYC == LY Bit
                     if (IORegisters.LY == IORegisters.LYC) {
-                        IORegisters.LCDSTAT |= 0x04;
+                        IORegisters.STAT |= 0x04;
 
                         // Enable LCD Interrupt if mode LYC interrupt is selected
-                        if (IORegisters.LCDSTAT & 0x40) {
+                        if (IORegisters.STAT & 0x40) {
                             IORegisters.interruptFlag |= 0x02;
                         }
                     }
                     else {
-                        IORegisters.LCDSTAT &= 0xFB;
+                        IORegisters.STAT &= 0xFB;
                     }
                 }
                 break;
             case 0x2: // Search OAM and Draw a line
                 if (cycleDelta >= 20) {
                     IOValues.LCDCycles += Globals.doubleSpeed ? 40 : 20;
-                    IORegisters.LCDSTAT++; // Go to state 3
+                    IORegisters.STAT++; // Go to state 3
                 }
                 break;
             case 0x3: // Send pixels to LCD (Flush Line)
@@ -320,8 +321,32 @@ function updateVRAMInspector() {
 /////////////////////// Timer Stuff ///////////////////////
 
 function doTimerUpdate() {
+    const cycleDelta = Globals.cycleNumber - IOValues.timerCycles;
     IORegisters.divider = Globals.cycleNumber & 0xFF;
 
+    let timerIncrementPeriod; // In m-cycles
+    switch (IORegisters.timerControl & 0x03) {
+        case 0:
+            timerIncrementPeriod = 256;
+            break;
+        case 1:
+            timerIncrementPeriod = 4;
+            break;
+        case 2:
+            timerIncrementPeriod = 16;
+            break;
+        case 3:
+            timerIncrementPeriod = 64;
+            break;
+    }
+
+    if (cycleDelta > timerIncrementPeriod) {
+        IORegisters.timerCounter++;
+        if (IORegisters.timerCounter > 0xFF) {
+            IORegisters.timerCounter = IORegisters.timerModulo;
+        }
+        IORegisters.interruptFlag |= 0x4;
+    }
 }
 
 /////////////////////// Interrupts ///////////////////////
@@ -337,26 +362,31 @@ function handleInterrupts() {
 
         // Moves program counter to various interrupt handlers
         if (interruptsToHandle & 0x01) { // VBLANK
+            console.log("VBLANK Handled");
             Registers.PC = 0x40;
             IORegisters.interruptFlag &= ~0x01;
         }
         else if (interruptsToHandle & 0x02) { // LCD STAT
+            console.log("LCD STAT Handled");
             Registers.PC = 0x48;
             IORegisters.interruptFlag &= ~0x02;
         }
         else if (interruptsToHandle & 0x04) { // Timer
+            console.log("Timer Handled");
             Registers.PC = 0x50;
             IORegisters.interruptFlag &= ~0x04;
         }
         else if (interruptsToHandle & 0x08) { // Serial
+            console.log("Serial Handled");
             Registers.PC = 0x58;
             IORegisters.interruptFlag &= ~0x08;
         }
         else if (interruptsToHandle & 0x10) { // Joypad
+            console.log("Joypad Handled");
             Registers.PC = 0x60;
             IORegisters.interruptFlag &= ~0x10;
         }
-        Globals.IME = false;
+        Globals.IME = 0;
         Globals.cycleNumber += 2;
     }
 }

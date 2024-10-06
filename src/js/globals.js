@@ -82,6 +82,6 @@ const Globals = {
     stopped: false,
     standby: false,
     serialOutput: "",
-    IME: false,
-    IE: false,
+    IME: 0,
+    IE: 0x01,
 }

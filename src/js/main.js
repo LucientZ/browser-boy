@@ -31,27 +31,11 @@ async function dropHandler(event) {
         try {
             parseROM(Globals.ROM);
             document.getElementById("game-title").innerText = `${Globals.metadata.title} Version ${Globals.ROM[ROMHeaderAddresses.ROM_VERSION]}`;
-
-            // Reset Registers to defaults
-            Registers.A = 0x11;
-            Registers.Fz = 0x1;
-            Registers.Fn = 0x0;
-            Registers.Fh = 0x1;
-            Registers.Fc = 0x1;
-            Registers.B = 0x00;
-            Registers.C = 0x00;
-            Registers.D = 0x00;
-            Registers.E = 0x08;
-            Registers.H = 0x00;
-            Registers.L = 0x00;
-            Registers.SP = 0xFFFE;
-            Registers.PC = 0x0100;
         }
         catch (error) {
             alert(error);
         }
     }
-    Globals.halted = false;
 }
 
 
@@ -230,14 +214,39 @@ function doProgramIteration() {
 
 setInterval(() => {
     if (Globals.ROM) {
-        for (let i = 0; i < 1000; i++) {
-            updateLCDFlags();
+        for (let i = 0; i < 3000; i++) {
+            doLCDUpdate();
             doTimerUpdate();
             handleInterrupts();
             doProgramIteration();
         }
     }
-}, 5);
+});
+
+setInterval(() => {
+    output = "";
+    for (let address = 0x9800; address < 0x9C00; address++) {
+        output += `0x${generalRead(address).toString(16).padStart(2, "0")} `;
+        if (address % 32 === 31) {
+            output += "\n";
+        }
+    }
+    document.getElementById("vram-map-0").innerText = output;
+}, 500);
 
 setInterval(flushVideoBuffer, 16.74);
-setInterval(updateVRAMInspector, 20);
+setInterval(updateVRAMInspector, 500);
+
+
+window.onload = () => {
+    const screen = document.getElementById("game-screen");
+    const screenContext = screen.getContext("2d");
+
+    screenContext.canvas.width = 2 * screen.width;
+    screenContext.canvas.height = 2 * screen.height;
+    screenContext.scale(2, 2);
+}
+
+function startGame() {
+    Globals.halted = false;
+}

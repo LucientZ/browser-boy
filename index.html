@@ -15,14 +15,22 @@
 </head>
 
 <body>
+    <div>
+        <h1 id="game-title">No Game Loaded</h1>
+        <div class="drop-zone" id="rom-drop-zone" ondrop="dropHandler(event);" ondragover="dragOverHandler(event);">Drop a file here!</div>
+    </div>
     <div class="evenly-spaced-row">
-        <div>
-            <h1 id="game-title">No Game Loaded</h1>
-            <div class="drop-zone" id="rom-drop-zone" ondrop="dropHandler(event);" ondragover="dragOverHandler(event);">Drop a file here!</div>
-        </div>
         <div>
             <h1>Screen</h1>
             <canvas id="game-screen" width="160" height="144"></canvas>
+            <div class="evenly-spaced-row">
+                <button onclick="Globals.halted = false;">Start</button>
+                <button onclick="doNext8BitInstruction();">Step</button>
+            </div>
+        </div>
+        <div>
+            <h1>Stack</h1>
+            <p id="stack" class="stack-inspector"></p>
         </div>
     </div>
     <div class="evenly-spaced-row">
@@ -37,6 +45,8 @@
     </div>
     <h2>Serial Output:</h2>
     <p id="serial-output"></p>
+    <h2>VRAM Map 0</h2>
+    <p id="vram-map-0" style="overflow-x: scroll; white-space: nowrap;"></p>
 </body>
 
 </html>

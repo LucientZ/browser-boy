@@ -50,6 +50,7 @@ const ROMHeaderAddresses = Object.freeze({
  * @prop {number}            cycleNumber      How many cycles the gameboy has gone through.
  * @prop {boolean}           halted           Halt is called. Low power mode where the CPU stops until an interrupt
  * @prop {boolean}           standby          Very low power mode. Very low power mode
+ * @prop {boolean}           frozen           Program does not run because of the emulator saying to stop.
  * @prop {boolean}           doubleSpeed      Says whether or not the gameboy is 
  * @prop {number}            IME              Interrupt Master Enable flag. 1 if interrupts are enabled
  * @prop {number}            IE               Interrupt Enable flag. Says what interrupts are allowed to be called
@@ -79,8 +80,9 @@ const Globals = {
     VRAM1: new Uint8Array(8 * BYTE_VALUES.KiB),
     cartridgeRAM: null,
     cycleNumber: 0,
-    halted: true,
+    halted: false,
     standby: false,
+    frozen: true,
     serialOutput: "",
     IME: 0,
     IE: 0x01,

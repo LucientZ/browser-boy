@@ -24,7 +24,8 @@
             <h1>Screen</h1>
             <canvas id="game-screen" width="160" height="144"></canvas>
             <div class="evenly-spaced-row">
-                <button onclick="Globals.halted = false;">Start</button>
+                <button onclick="Globals.frozen = false;">Start</button>
+                <button onclick="Globals.frozen = true;">Stop</button>
                 <button onclick="doNext8BitInstruction();">Step</button>
             </div>
         </div>

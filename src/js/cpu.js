@@ -1323,7 +1323,7 @@ function doNext16BitInstruction() {
     Globals.cycleNumber += 2;
 }
 
-let breakpoints = [0x50];
+let breakpoints = [0xC2B5];
 
 function doNext8BitInstruction() {
     const instruction = gameboyRead(Registers.PC++);
@@ -1354,10 +1354,10 @@ function doNext8BitInstruction() {
     Registers.Fh = Registers.Fh ? 1 : 0;
     Registers.Fn = Registers.Fn ? 1 : 0;
     if (breakpoints.includes(Registers.PC)) {
-        Globals.halted = true;
+        Globals.frozen = true;
         console.log(`Breakpoint at 0x${Registers.PC.toString(16)}`);
     }
-    else if (Globals.halted) {
+    else if (Globals.frozen) {
         console.log(`PC: 0x${Registers.PC.toString(16)}`);
     }
 }

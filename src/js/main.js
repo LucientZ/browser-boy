@@ -36,6 +36,7 @@ async function dropHandler(event) {
             alert(error);
         }
     }
+    Globals.halted = false;
 }
 
 
@@ -215,10 +216,12 @@ function doProgramIteration() {
 setInterval(() => {
     if (Globals.ROM) {
         for (let i = 0; i < 3000; i++) {
-            doLCDUpdate();
-            doTimerUpdate();
-            handleInterrupts();
-            doProgramIteration();
+            if(!Globals.frozen){
+                doLCDUpdate();
+                doTimerUpdate();
+                handleInterrupts();
+                doProgramIteration();
+            }
         }
     }
 });
@@ -245,8 +248,4 @@ window.onload = () => {
     screenContext.canvas.width = 2 * screen.width;
     screenContext.canvas.height = 2 * screen.height;
     screenContext.scale(2, 2);
-}
-
-function startGame() {
-    Globals.halted = false;
 }

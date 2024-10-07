@@ -729,7 +729,7 @@ const opcodeTable8Bit = {
     },
     0x33: () => {
         // SP++
-        Registers.SP++;
+        Registers.SP = (Registers.SP + 1) & 0xFFFF;
         Globals.cycleNumber += 2;
     },
     0x34: () => {

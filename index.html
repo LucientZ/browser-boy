@@ -14,10 +14,8 @@
     <script type="text/javascript" src="src/js/main.js"></script>
 </head>
 
-<body>
-    <div>
-        <h1 id="game-title">No Game Loaded</h1>
-        <div class="drop-zone" id="rom-drop-zone" ondrop="dropHandler(event);" ondragover="dragOverHandler(event);">Drop a file here!</div>
+<body id="rom-drop-zone" ondrop="dropHandler(event);" ondragover="dragOverHandler(event);">
+    <h1 id="game-title">No Game Loaded</h1>
     </div>
     <div class="evenly-spaced-row">
         <div>
@@ -26,7 +24,7 @@
             <div class="evenly-spaced-row">
                 <button onclick="Globals.frozen = false;">Start</button>
                 <button onclick="Globals.frozen = true;">Stop</button>
-                <button onclick="doNext8BitInstruction();">Step</button>
+                <button onclick="doProgramIteration();">Step</button>
             </div>
         </div>
         <div>

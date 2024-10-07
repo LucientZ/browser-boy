@@ -206,9 +206,10 @@ function parseROM(rom) {
 }
 
 function doProgramIteration() {
-    // TODO Implement Interrupts correctly
-
     if (Globals.ROM && !Globals.halted && !Globals.standby) {
+        doLCDUpdate();
+        doTimerUpdate();
+        handleInterrupts();
         doNext8BitInstruction();
     }
 }
@@ -216,10 +217,7 @@ function doProgramIteration() {
 setInterval(() => {
     if (Globals.ROM) {
         for (let i = 0; i < 3000; i++) {
-            if(!Globals.frozen){
-                doLCDUpdate();
-                doTimerUpdate();
-                handleInterrupts();
+            if (!Globals.frozen) {
                 doProgramIteration();
             }
         }
@@ -235,10 +233,13 @@ setInterval(() => {
         }
     }
     document.getElementById("vram-map-0").innerText = output;
-}, 500);
+}, 1000);
 
 setInterval(flushVideoBuffer, 16.74);
-setInterval(updateVRAMInspector, 500);
+setInterval(() => {
+    updateVRAMInspector();
+    updateStackInspector();
+}, 1000);
 
 
 window.onload = () => {

@@ -172,13 +172,10 @@ function subtract8Bit(a, b) {
  */
 function doSignedRelativeJump() {
     let jumpValue = gameboyRead(Registers.PC++);
-    if (jumpValue & 0x80) {
-        jumpValue = (-jumpValue) & 0xFF;
-        Registers.PC -= jumpValue;
+    if (jumpValue >= 128) {
+        jumpValue -= 256;
     }
-    else {
-        Registers.PC += jumpValue;
-    }
+    Registers.PC = (Registers.PC + jumpValue) & 0xFFFF;
     Globals.cycleNumber += 3;
 }
 
@@ -204,7 +201,6 @@ function doPop() {
     const secondByteRead = gameboyRead(Registers.SP++);
     Globals.cycleNumber += 3;
     stack.pop();
-    updateStackInspector();
     return [firstByteRead, secondByteRead];
 }
 
@@ -216,7 +212,6 @@ function doPush(value) {
     gameboyWrite(--Registers.SP, (value >> 8));
     gameboyWrite(--Registers.SP, value & 0xFF);
     stack.push(`0x${value.toString(16)}`);
-    updateStackInspector()
     Globals.cycleNumber += 4;
 }
 
@@ -230,14 +225,13 @@ function doPush(value) {
 function doCall(address = undefined) {
     if (address === undefined) {
         address = gameboyRead(Registers.PC++) | (gameboyRead(Registers.PC++) << 8);
-        Globals.cycleNumber += 2;
+        Globals.cycleNumber += 1;
     }
 
     gameboyWrite(--Registers.SP, Registers.PC >> 8);
     gameboyWrite(--Registers.SP, Registers.PC & 0xFF);
     stack.push(`Address 0x${Registers.SP.toString(16)}`);
     Registers.PC = address;
-    updateStackInspector();
     Globals.cycleNumber += 3;
 }
 
@@ -248,7 +242,6 @@ function doReturn() {
     stack.pop();
     Registers.PC = gameboyRead(Registers.SP) | (gameboyRead(Registers.SP + 1) << 8);
     Registers.SP += 2;
-    updateStackInspector();
     Globals.cycleNumber += 3;
 }
 
@@ -627,7 +620,6 @@ const opcodeTable8Bit = {
         // DAA
         // https://blog.ollien.com/posts/gb-daa/
         // https://forums.nesdev.org/viewtopic.php?t=15944
-        // FIXME
 
         if (!Registers.Fn) {
             if (Registers.Fc || Registers.A > 0x99) {
@@ -729,10 +721,10 @@ const opcodeTable8Bit = {
         // (HL-) <- A
         // Write, then decrement HL without setting flags
         gameboyWrite(combineRegisters(Registers.H, Registers.L), Registers.A);
-        Registers.L = (Registers.L - 1) & 0xFF;
         if (!(Registers.L)) {
             Registers.H = (Registers.H - 1) & 0xFF;
         }
+        Registers.L = (Registers.L - 1) & 0xFF;
         Globals.cycleNumber += 2;
     },
     0x33: () => {
@@ -743,19 +735,14 @@ const opcodeTable8Bit = {
     0x34: () => {
         // (HL)++
         let value = gameboyRead(combineRegisters(Registers.H, Registers.L));
-        value = increment16Bit(value);
-        Registers.Fz = !value;
-        Registers.Fn = 0;
+        value = increment8Bit(value);
         gameboyWrite(value, combineRegisters(Registers.H, Registers.L));
         Globals.cycleNumber += 2;
     },
     0x35: () => {
         // (HL)--
         let value = gameboyRead(combineRegisters(Registers.H, Registers.L));
-        Registers.Fh = !(value & 0x0F);
-        value = decrement16Bit(value);
-        Registers.Fz = !value;
-        Registers.Fn = 1;
+        value = decrement8Bit(value);
         gameboyWrite(value, combineRegisters(Registers.H, Registers.L));
         Globals.cycleNumber += 2;
     },
@@ -775,7 +762,7 @@ const opcodeTable8Bit = {
     0x38: () => {
         // If CY flag aka Fc is set
         // PC += (signed) (PC++)
-        if (Registers.Fz) {
+        if (Registers.Fc) {
             doSignedRelativeJump();
         }
         else {
@@ -784,7 +771,7 @@ const opcodeTable8Bit = {
         }
     },
     0x39: () => {
-        // HL += SP
+        // ADD HL, SP
         const HL = combineRegisters(Registers.H, Registers.L);
         const SP = Registers.SP;
         const oldFz = Registers.Fz;
@@ -796,15 +783,15 @@ const opcodeTable8Bit = {
     0x3A: () => {
         // A <- (HL-)
         Registers.A = gameboyRead(combineRegisters(Registers.H, Registers.L));
-        Registers.L = (Registers.L - 1) & 0xFF;
         if (!(Registers.L)) {
             Registers.H = (Registers.H - 1) & 0xFF;
         }
+        Registers.L = (Registers.L - 1) & 0xFF;
         Globals.cycleNumber += 2;
     },
     0x3B: () => {
         // SP--
-        Registers.SP = (SP - 1) & 0xFF;
+        Registers.SP = (Registers.SP - 1) & 0xFF;
         Globals.cycleNumber += 2;
     },
     0x3C: () => {
@@ -994,6 +981,18 @@ const opcodeTable8Bit = {
             doJump();
         }
         else {
+            Registers.PC += 2;
+            Globals.cycleNumber += 3;
+        }
+    },
+    // 0xDB not valid
+    0xDC: () => {
+        // CALL C, a16
+        if (Registers.Fc) {
+            doCall();
+        }
+        else {
+            Registers.PC += 2;
             Globals.cycleNumber += 3;
         }
     },
@@ -1035,14 +1034,14 @@ const opcodeTable8Bit = {
         // ADD SP, s8
         // TODO
         let value = gameboyRead(Registers.PC++);
-        if (value > 128) {
+        if (value >= 128) {
             value -= 256;
         }
+        Registers.Fz = 0;
+        Registers.Fn = 0;
         Registers.Fh = ((Registers.SP & 0x0F) + (value & 0x0F)) >> 4;
         Registers.Fc = ((Registers.SP & 0xFF) + (value & 0xFF)) >> 8;
-        Registers.Fn = 0;
-        Registers.Fz = 0;
-        Registers.PC = (Registers.SP + value) & 0xFFFF;
+        Registers.SP = (Registers.SP + value) & 0xFFFF;
         Globals.cycleNumber += 3;
     },
     0xE9: () => {
@@ -1104,22 +1103,21 @@ const opcodeTable8Bit = {
     },
     0xF8: () => {
         // LD HL, SP+s8
-        // TODO
         let value = gameboyRead(Registers.PC++);
         if (value >= 128) {
             value -= 256;
         }
+        Registers.Fz = 0;
+        Registers.Fn = 0;
         Registers.Fh = ((Registers.SP & 0x0F) + (value & 0x0F)) >> 4;
         Registers.Fc = ((Registers.SP & 0xFF) + (value & 0xFF)) >> 8;
-        Registers.Fn = 0;
-        Registers.Fz = 0;
         [Registers.H, Registers.L] = splitRegisters((Registers.SP + value) & 0xFFFF);
         Globals.cycleNumber += 2;
     },
     0xF9: () => {
         // LD SP, HL
         Registers.SP = combineRegisters(Registers.H, Registers.L);
-        Globals.cycleNumber += 3;
+        Globals.cycleNumber += 2;
     },
     0xFA: () => {
         Registers.A = gameboyRead(gameboyRead(Registers.PC++) | (gameboyRead(Registers.PC++) << 8));
@@ -1348,8 +1346,7 @@ function doNext8BitInstruction() {
             opcodeTable8Bit[instruction]();
         }
         catch (error) {
-            alert(error);
-            Globals.standby = true;
+            alert(`Error while attempting to execute instruction 0x${instruction.toString(16)} at $${(Registers.PC - 1).toString(16)}: ${error}`);
         }
     }
 

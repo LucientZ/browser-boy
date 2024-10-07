@@ -435,8 +435,10 @@ const opcodeTable8Bit = {
     },
     0x0B: () => {
         // BC--
-        const BC = combineRegisters(Registers.B, Registers.C);
-        [Registers.B, Registers.C] = splitRegisters(decrement16Bit(BC));
+        if (!Registers.C) {
+            Registers.B = (Registers.B - 1) & 0xFF;
+        }
+        Registers.C = (Registers.C - 1) & 0xFF;
         Globals.cycleNumber += 2;
     },
     0x0C: () => {
@@ -539,8 +541,10 @@ const opcodeTable8Bit = {
     },
     0x1B: () => {
         // DE--
-        const DE = combineRegisters(Registers.D, Registers.E);
-        [Registers.D, Registers.E] = splitRegisters(decrement16Bit(DE));
+        if (!Registers.E) {
+            Registers.D = (Registers.D - 1) & 0xFF;
+        }
+        Registers.E = (Registers.E - 1) & 0xFF;
         Globals.cycleNumber += 2;
     },
     0x1C: () => {
@@ -678,8 +682,10 @@ const opcodeTable8Bit = {
     },
     0x2B: () => {
         // HL--
-        const HL = combineRegisters(Registers.H, Registers.L);
-        [Registers.H, Registers.L] = splitRegisters(decrement16Bit(HL));
+        if (!Registers.L) {
+            Registers.H = (Registers.H - 1) & 0xFF;
+        }
+        Registers.L = (Registers.L - 1) & 0xFF;
         Globals.cycleNumber += 2;
     },
     0x2C: () => {
@@ -798,8 +804,7 @@ const opcodeTable8Bit = {
     },
     0x3B: () => {
         // SP--
-        const SP = Registers.SP;
-        Registers.SP = decrement16Bit(SP);
+        Registers.SP = (SP - 1) & 0xFF;
         Globals.cycleNumber += 2;
     },
     0x3C: () => {
@@ -1323,7 +1328,7 @@ function doNext16BitInstruction() {
     Globals.cycleNumber += 2;
 }
 
-let breakpoints = [0x51, 0xC2B5];
+let breakpoints = [];
 
 function doNext8BitInstruction() {
     const instruction = gameboyRead(Registers.PC++);
@@ -1368,10 +1373,7 @@ function handleInterrupts() {
     const interruptsToHandle = Globals.IE & IORegisters.interruptFlag;
     if (Globals.IME && interruptsToHandle) {
         doPush(Registers.PC);
-
-        if (Globals.halted) {
-            Globals.halted = false;
-        }
+        Globals.halted = false;
 
         // Moves program counter to various interrupt handlers
         if (interruptsToHandle & 0x01) { // VBLANK

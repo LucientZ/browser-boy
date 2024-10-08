@@ -36,7 +36,7 @@ const Registers = {
  * @returns {number}
  */
 function gameboyRead(addr) {
-    val = addr >= 0xFF00 ? readIO(addr) : readMem(addr);
+    const val = addr >= 0xFF00 ? readIO(addr) : readMem(addr);
     return val;
 }
 
@@ -68,8 +68,8 @@ function combineRegisters(high, low) {
  * @param {number} combined 
  */
 function splitRegisters(combined) {
-    high = (combined >> 8) & 0xFF;
-    low = combined & 0xFF;
+    const high = (combined >> 8) & 0xFF;
+    const low = combined & 0xFF;
 
     return [high, low];
 }
@@ -144,16 +144,16 @@ function add8Bit(a, b) {
  * @returns 
  */
 function add16Bit(a, b) {
-    Registers.Fh = ((a & 0x0FFFF) + (b & 0x0FFFF)) >> 12;
+    Registers.Fh = ((a & 0x0FFF) + (b & 0x0FFF)) >> 12;
     const result = (a + b) & 0xFFFF;
     Registers.Fz = !result;
     Registers.Fn = 0;
-    Registers.Fc = (a + b) >> 16;
+    Registers.Fc = (a + b) > 0xFFFF;
     return result;
 }
 
 /**
- * 
+ * Subtract two 8-bit numbers and set appropriate flags
  * @param {number} a 
  * @param {number} b 
  * @returns 
@@ -173,7 +173,7 @@ function subtract8Bit(a, b) {
 function doSignedRelativeJump() {
     let jumpValue = gameboyRead(Registers.PC++);
     if (jumpValue >= 128) {
-        jumpValue -= 256;
+        jumpValue |= 0xFF00;
     }
     Registers.PC = (Registers.PC + jumpValue) & 0xFFFF;
     Globals.cycleNumber += 3;
@@ -205,7 +205,7 @@ function doPop() {
 }
 
 /**
- * Pushes value to memory pointed by SP.
+ * Pushes two byte value to memory pointed by SP.
  * Memory will be written in little endian order
 */
 function doPush(value) {
@@ -214,8 +214,6 @@ function doPush(value) {
     stack.push(`0x${value.toString(16)}`);
     Globals.cycleNumber += 4;
 }
-
-
 
 /**
  * Pushes current PC onto stack and calls specified address
@@ -244,7 +242,6 @@ function doReturn() {
     Registers.SP += 2;
     Globals.cycleNumber += 3;
 }
-
 
 /**
  * Used for instructions 0x40-0x75 and 0x77-0x7F
@@ -280,7 +277,7 @@ function doLoadInstruction(instruction) {
 }
 
 /**
- * This handles instructions 0x80-0xBF
+ * This handles instructions 0x80-0xBF,
  * 0xC6, 0xCE, 0xD6, 0xDE, 0xE6, 0xEE, 0xF6, 0xFE 
  * @param {number} instruction 
  */
@@ -311,7 +308,7 @@ function doArithmeticInstruction(instruction) {
             break;
         case 1: // ADC
             Registers.Fh = ((Registers.A & 0x0F) + (value & 0x0F) + oldFc) >> 4;
-            Registers.Fc = (Registers.A + value + oldFc) >> 8
+            Registers.Fc = (Registers.A + value + oldFc) > 0xFF;
             Registers.A = (Registers.A + Registers.Fc + value) & 0xFF;
             Registers.Fz = !Registers.A;
             Registers.Fn = 0;
@@ -323,7 +320,7 @@ function doArithmeticInstruction(instruction) {
             Registers.Fh = (Registers.A & 0x0F) < ((value & 0x0F) + oldFc);
             const result = Registers.A - Registers.Fc - value;
             Registers.A = result & 0xFF;
-            Registers.Fc = (result >> 8) & 0x01;
+            Registers.Fc = result < 0;
             Registers.Fz = !Registers.A;
             Registers.Fn = 1;
             break;
@@ -398,17 +395,17 @@ const opcodeTable8Bit = {
     0x07: () => {
         // RLCA
         Registers.Fc = Registers.A >> 7;
-        Registers.A = ((Registers.A << 1) + Registers.Fc) & 0xFF;
+        Registers.A = ((Registers.A << 1) | !!Registers.Fc) & 0xFF;
         Registers.Fz = 0;
         Registers.Fn = 0;
         Registers.Fh = 0;
         Globals.cycleNumber += 1;
     },
     0x08: () => {
-        // (a16) <- SP
+        // LD (a16), SP
         const address = gameboyRead(Registers.PC++) | (gameboyRead(Registers.PC++) << 8);
         gameboyWrite(address, Registers.SP & 0xFF);
-        gameboyWrite(address + 1, Registers.SP >> 8);
+        gameboyWrite(address + 1, (Registers.SP >> 8) & 0xFF);
         Globals.cycleNumber += 5;
     },
     0x09: () => {
@@ -451,7 +448,7 @@ const opcodeTable8Bit = {
     },
     0x0F: () => {
         // RRCA
-        Registers.Fc = Registers.A & 0x1;
+        Registers.Fc = Registers.A & 0x01;
         Registers.A = Registers.A >> 1;
         Registers.A |= (Registers.Fc << 7);
         Registers.Fz = 0;
@@ -697,7 +694,7 @@ const opcodeTable8Bit = {
     },
     0x2F: () => {
         // A = ~A
-        Registers.A ^= 0xFF;
+        Registers.A = (~Registers.A) & 0xFF;
         Registers.Fn = 1;
         Registers.Fh = 1;
         Globals.cycleNumber += 1;
@@ -1035,7 +1032,7 @@ const opcodeTable8Bit = {
         // TODO
         let value = gameboyRead(Registers.PC++);
         if (value >= 128) {
-            value -= 256;
+            value |= 0xFF00;
         }
         Registers.Fz = 0;
         Registers.Fn = 0;
@@ -1105,7 +1102,7 @@ const opcodeTable8Bit = {
         // LD HL, SP+s8
         let value = gameboyRead(Registers.PC++);
         if (value >= 128) {
-            value -= 256;
+            value |= 0xFF00;
         }
         Registers.Fz = 0;
         Registers.Fn = 0;
@@ -1120,6 +1117,7 @@ const opcodeTable8Bit = {
         Globals.cycleNumber += 2;
     },
     0xFA: () => {
+        // LD A, (a16)
         Registers.A = gameboyRead(gameboyRead(Registers.PC++) | (gameboyRead(Registers.PC++) << 8));
         Globals.cycleNumber += 4;
     },
@@ -1200,11 +1198,11 @@ function doNext16BitInstruction() {
             Registers.Fh = 0;
             break;
         case 0x06: // SWAP
-            value = ((value << 4) & 0xFF) | (value >> 4);
-            Registers.Fc = 0;
+            value = ((value << 4) & 0xF0) | (value >> 4);
             Registers.Fz = !value;
             Registers.Fn = 0;
             Registers.Fh = 0;
+            Registers.Fc = 0;
             break;
         case 0x07: // SRL
             Registers.Fc = value & 0x01;
@@ -1312,7 +1310,7 @@ function doNext16BitInstruction() {
     }
 
     // Store value
-    switch ((instruction) & 7) {
+    switch ((instruction) & 0x07) {
         case 0x0: Registers.B = value; break;
         case 0x1: Registers.C = value; break;
         case 0x2: Registers.D = value; break;

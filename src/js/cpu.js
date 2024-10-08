@@ -162,7 +162,7 @@ function subtract8Bit(a, b) {
     Registers.Fh = (a & 0x0F) < (b & 0x0F);
     const result = (a - b) & 0xFF;
     Registers.Fc = a < b;
-    Registers.Fz = a === b;
+    Registers.Fz = !result;
     Registers.Fn = 1;
     return result;
 }
@@ -309,7 +309,7 @@ function doArithmeticInstruction(instruction) {
         case 1: // ADC
             Registers.Fh = ((Registers.A & 0x0F) + (value & 0x0F) + oldFc) >> 4;
             Registers.Fc = (Registers.A + value + oldFc) >> 8;
-            Registers.A = (Registers.A + oldFc + value) & 0xFF;
+            Registers.A = (Registers.A + value + oldFc) & 0xFF;
             Registers.Fz = !Registers.A;
             Registers.Fn = 0;
             break;
@@ -318,9 +318,8 @@ function doArithmeticInstruction(instruction) {
             break;
         case 3: // SBC
             Registers.Fh = (Registers.A & 0x0F) < ((value & 0x0F) + oldFc);
-            const result = Registers.A - Registers.Fc - value;
-            Registers.A = result & 0xFF;
-            Registers.Fc = result & 0x10;
+            Registers.Fc = (Registers.A) < value + oldFc;
+            Registers.A = (Registers.A - value - oldFc) & 0xFF;
             Registers.Fz = !Registers.A;
             Registers.Fn = 1;
             break;
@@ -817,6 +816,7 @@ const opcodeTable8Bit = {
     0x76: () => {
         // HALT
         Globals.halted = true;
+        Globals.IME = 1;
         Globals.cycleNumber++;
     },
     // GAP of Load Instructions 0x77-0x7F
@@ -1153,7 +1153,7 @@ function doNext16BitInstruction() {
     }
 
     // Perform operation on value
-    let oldFC = Registers.Fc; // Used for operations which require using the previous Fc value
+    let oldFc = Registers.Fc; // Used for operations which require using the previous Fc value
     let temp; // Used for intermediate values
     switch (instruction >> 3) {
         case 0x00: // RLC
@@ -1172,14 +1172,14 @@ function doNext16BitInstruction() {
             break;
         case 0x02: // RL
             Registers.Fc = value >> 7;
-            value = (value << 1) | oldFC;
+            value = (value << 1) | oldFc;
             Registers.Fz = !value;
             Registers.Fn = 0;
             Registers.Fh = 0;
             break;
         case 0x03: // RR
             Registers.Fc = value & 0x01;
-            value = (value >> 1) | (oldFC << 7);
+            value = (value >> 1) | (oldFc << 7);
             Registers.Fz = !value;
             Registers.Fn = 0;
             Registers.Fh = 0;
@@ -1374,6 +1374,7 @@ function handleInterrupts() {
     if (Globals.IME && interruptsToHandle) {
         doPush(Registers.PC);
         Globals.halted = false;
+        Globals.standby = false;
 
         // Moves program counter to various interrupt handlers
         if (interruptsToHandle & 0x01) { // VBLANK
@@ -1387,6 +1388,7 @@ function handleInterrupts() {
             IORegisters.interruptFlag &= ~0x02;
         }
         else if (interruptsToHandle & 0x04) { // Timer
+            console.log("Timer Handled");
             Registers.PC = 0x50;
             IORegisters.interruptFlag &= ~0x04;
         }

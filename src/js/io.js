@@ -215,7 +215,7 @@ function doLCDUpdate() {
             case 0x0: // HBLANK - Waiting until the end of a scanline
                 if (cycleDelta >= 36) {
                     IOValues.LCDCycles += Globals.doubleSpeed ? 72 : 36;
-                    IORegisters.LY++;
+                    IORegisters.LY = (IORegisters.LY + 1) & 0xFF;
 
                     // Set flags
                     if (IORegisters.LY == 144) { // Reached the end of the screen
@@ -244,7 +244,7 @@ function doLCDUpdate() {
                 if (cycleDelta >= 114) {
                     IOValues.LCDCycles += Globals.doubleSpeed ? 228 : 114;
 
-                    IORegisters.LY++;
+                    IORegisters.LY = (IORegisters.LY + 1) & 0xFF;
                     if (IORegisters.LY == 154) { // Reached the end of VBLANK
                         IORegisters.LY = 0;
                         changeLCDMode(2);
@@ -347,10 +347,11 @@ function doTimerUpdate() {
     }
 
     if (cycleDelta > timerIncrementPeriod) {
-        IORegisters.timerCounter++;
+        IORegisters.timerCounter += Math.floor(cycleDelta / timerIncrementPeriod);
+        IOValues.timerCycles = Globals.cycleNumber;
         if (IORegisters.timerCounter > 0xFF) {
             IORegisters.timerCounter = IORegisters.timerModulo;
+            IORegisters.interruptFlag |= 0x4;
         }
-        IORegisters.interruptFlag |= 0x4;
     }
 }

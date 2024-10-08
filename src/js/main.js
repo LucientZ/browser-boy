@@ -206,11 +206,14 @@ function parseROM(rom) {
 }
 
 function doProgramIteration() {
+    doLCDUpdate();
+    doTimerUpdate();
+    handleInterrupts();
     if (Globals.ROM && !Globals.halted && !Globals.standby) {
-        doLCDUpdate();
-        doTimerUpdate();
-        handleInterrupts();
         doNext8BitInstruction();
+    }
+    else {
+        Globals.cycleNumber++;
     }
 }
 

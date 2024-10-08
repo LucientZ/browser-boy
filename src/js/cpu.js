@@ -56,8 +56,8 @@ function gameboyWrite(addr, val) {
 
 /**
  * Converts two 8-bit registers to one 16 bit register
- * @param {number} high The higher bits  
- * @param {number} low  The lower bits
+ * @param {number} high The higher byte
+ * @param {number} low  The lower byte
  */
 function combineRegisters(high, low) {
     return ((high << 8) | low) & 0xFFFF;
@@ -130,7 +130,7 @@ function decrement16Bit(a) {
  * @returns 
  */
 function add8Bit(a, b) {
-    Registers.Fh = ((a * 0x0F) + (b & 0x0F)) >> 4;
+    Registers.Fh = ((a & 0x0F) + (b & 0x0F)) >> 4;
     const result = (a + b) & 0xFF;
     Registers.Fz = !result;
     Registers.Fn = 0;
@@ -162,7 +162,7 @@ function subtract8Bit(a, b) {
     Registers.Fh = (a & 0x0F) < (b & 0x0F);
     const result = (a - b) & 0xFF;
     Registers.Fc = a < b;
-    Registers.Fz = !result;
+    Registers.Fz = a === b;
     Registers.Fn = 1;
     return result;
 }
@@ -301,15 +301,15 @@ function doArithmeticInstruction(instruction) {
         }
     }
 
-    const oldFc = Registers.Fc;
+    const oldFc = Registers.Fc; // Used for instructions that need to reference the previous value of fc
     switch ((instruction >> 3) & 0x7) {
         case 0: // ADD
-            Registers.A = add8Bit(value, Registers.A);
+            Registers.A = add8Bit(Registers.A, value);
             break;
         case 1: // ADC
             Registers.Fh = ((Registers.A & 0x0F) + (value & 0x0F) + oldFc) >> 4;
-            Registers.Fc = (Registers.A + value + oldFc) > 0xFF;
-            Registers.A = (Registers.A + Registers.Fc + value) & 0xFF;
+            Registers.Fc = (Registers.A + value + oldFc) >> 8;
+            Registers.A = (Registers.A + oldFc + value) & 0xFF;
             Registers.Fz = !Registers.A;
             Registers.Fn = 0;
             break;
@@ -320,7 +320,7 @@ function doArithmeticInstruction(instruction) {
             Registers.Fh = (Registers.A & 0x0F) < ((value & 0x0F) + oldFc);
             const result = Registers.A - Registers.Fc - value;
             Registers.A = result & 0xFF;
-            Registers.Fc = result < 0;
+            Registers.Fc = result & 0x10;
             Registers.Fz = !Registers.A;
             Registers.Fn = 1;
             break;
@@ -1012,9 +1012,9 @@ const opcodeTable8Bit = {
         Globals.cycleNumber += 3;
     },
     0xE2: () => {
-        // LD (0xFF00 & C), A
+        // LD (0xFF00 | C), A
         // IO Operation
-        writeIO(0xFF00 & Registers.C, Registers.A);
+        writeIO(0xFF00 | Registers.C, Registers.A);
         Globals.cycleNumber += 2;
     },
     0xE5: () => {
@@ -1076,8 +1076,8 @@ const opcodeTable8Bit = {
         Globals.cycleNumber += 3;
     },
     0xF2: () => {
-        // LD A, (0xFF00 & C)
-        Registers.A = readIO(0xFF00 & Registers.C);
+        // LD A, (0xFF00 | C)
+        Registers.A = readIO(0xFF00 | Registers.C);
         Globals.cycleNumber += 1;
     },
     0xF3: () => {
@@ -1153,7 +1153,8 @@ function doNext16BitInstruction() {
     }
 
     // Perform operation on value
-    let oldFC = Registers.Fc;
+    let oldFC = Registers.Fc; // Used for operations which require using the previous Fc value
+    let temp; // Used for intermediate values
     switch (instruction >> 3) {
         case 0x00: // RLC
             Registers.Fc = value >> 7;
@@ -1185,14 +1186,18 @@ function doNext16BitInstruction() {
             break;
         case 0x04: // SLA
             Registers.Fc = value >> 7;
+            temp = value & 0x01;
             value <<= 1;
+            value |= temp;
             Registers.Fz = !value;
             Registers.Fn = 0;
             Registers.Fh = 0;
             break;
         case 0x05: // SRA
             Registers.Fc = value & 0x01;
+            temp = value & 0x80;
             value >>= 1;
+            value |= temp;
             Registers.Fz = !value;
             Registers.Fn = 0;
             Registers.Fh = 0;

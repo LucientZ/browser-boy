@@ -26,7 +26,7 @@ function writePixelToScreen(x, y, color, ctx) {
     }
 
     // Converts from 5-bit color to 8-bit color
-    const colorCoefficient = 255 / 31;
+    const colorCoefficient = 8; // 256 / 32
     const red = Math.floor((color & 0x1f) * colorCoefficient);
     const green = Math.floor(((color >> 5) & 0x1f) * colorCoefficient);
     const blue = Math.floor(((color >> 10) & 0x1f) * colorCoefficient);
@@ -67,9 +67,7 @@ function flushVideoBuffer() {
         const color = IOValues.videoBuffer[i];
         const x = i % 160;
         const y = Math.floor(i / 160);
-        if (color) { // Color 0x0000 means transparent, so don't draw the pixel!
-            writePixelToScreen(x, y, color);
-        }
+        writePixelToScreen(x, y, color);
     }
 }
 
@@ -100,7 +98,7 @@ function extractPixelsFromBytes(first, second) {
 
     return pixels;
 }
-
+let testTile = 32;
 /**
  * Draws a single line in the frame buffer
  * https://www.youtube.com/watch?v=_h5TXh20_fQ Great high level overview of how tiles work
@@ -127,7 +125,7 @@ function drawLCDLine(line) {
             let column = 0;
             for (let i = 0; i < 21; i++) {
                 tileX = ((Math.floor(IORegisters.SCX / 8)) + i) % 32;
-                const tileMapAddress = 0x9800 | (tileMapSelected << 10) | ((tileY << 5) & 0x1F) | (tileX & 0x1F);
+                const tileMapAddress = 0x9800 | (tileMapSelected << 10) | ((tileY & 0x1F) << 5) | (tileX & 0x1F);
                 const tileNumber = generalRead(tileMapAddress);
                 const tileRow = (IORegisters.SCY + line) % 8;
                 const tileBlockAddress = (
@@ -136,11 +134,9 @@ function drawLCDLine(line) {
                         tileBankBaseAddress1 + (tileNumber - 128) * 0x10
                 );
                 const tileDataAddress = tileBlockAddress + tileRow * 2;
-                // console.log(`0x${(tileDataAddress - 0x8000).toString(16)}`);
                 const tileData = extractPixelsFromBytes(generalRead(tileDataAddress), generalRead(tileDataAddress + 1));
-                let startTileColumn = (i === 0) ? (left % 8) : 0;
-                let endTileColumn = (i === 21) ? (right % 8) : 7;
-
+                const startTileColumn = (i === 0) ? (left % 8) : 0;
+                const endTileColumn = (i === 21) ? (right % 8) : 7;
                 for (let j = startTileColumn; j <= endTileColumn; j++) {
                     const pixel = tileData[j];
                     renderPixel(column++, line, pixel);

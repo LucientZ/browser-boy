@@ -732,14 +732,14 @@ const opcodeTable8Bit = {
         // (HL)++
         let value = gameboyRead(combineRegisters(Registers.H, Registers.L));
         value = increment8Bit(value);
-        gameboyWrite(value, combineRegisters(Registers.H, Registers.L));
+        gameboyWrite(combineRegisters(Registers.H, Registers.L), value);
         Globals.cycleNumber += 2;
     },
     0x35: () => {
         // (HL)--
         let value = gameboyRead(combineRegisters(Registers.H, Registers.L));
         value = decrement8Bit(value);
-        gameboyWrite(value, combineRegisters(Registers.H, Registers.L));
+        gameboyWrite(combineRegisters(Registers.H, Registers.L), value);
         Globals.cycleNumber += 2;
     },
     0x36: () => {
@@ -1153,11 +1153,10 @@ function doNext16BitInstruction() {
 
     // Perform operation on value
     let oldFc = Registers.Fc; // Used for operations which require using the previous Fc value
-    let temp; // Used for intermediate values
     switch (instruction >> 3) {
         case 0x00: // RLC
             Registers.Fc = value >> 7;
-            value = (value << 1 & 0xFF) & Registers.Fc;
+            value = (value << 1 & 0xFF) | Registers.Fc;
             Registers.Fz = !value;
             Registers.Fn = 0;
             Registers.Fh = 0;
@@ -1171,7 +1170,7 @@ function doNext16BitInstruction() {
             break;
         case 0x02: // RL
             Registers.Fc = value >> 7;
-            value = (value << 1) | oldFc;
+            value = ((value << 1) & 0xFF) | oldFc;
             Registers.Fz = !value;
             Registers.Fn = 0;
             Registers.Fh = 0;
@@ -1185,18 +1184,14 @@ function doNext16BitInstruction() {
             break;
         case 0x04: // SLA
             Registers.Fc = value >> 7;
-            temp = value & 0x01;
-            value <<= 1;
-            value |= temp;
+            value = (value << 1) & 0xFF;
             Registers.Fz = !value;
             Registers.Fn = 0;
             Registers.Fh = 0;
             break;
         case 0x05: // SRA
             Registers.Fc = value & 0x01;
-            temp = value & 0x80;
-            value >>= 1;
-            value |= temp;
+            value = (value & 0x80) | (value >> 1);
             Registers.Fz = !value;
             Registers.Fn = 0;
             Registers.Fh = 0;

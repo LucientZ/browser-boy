@@ -1379,27 +1379,22 @@ function handleInterrupts() {
 
         // Moves program counter to various interrupt handlers
         if (interruptsToHandle & 0x01) { // VBLANK
-            console.log("VBLANK Handled");
             Registers.PC = 0x40;
             IORegisters.IF &= ~0x01;
         }
         else if (interruptsToHandle & 0x02) { // LCD STAT
-            console.log("LCD STAT Handled");
             Registers.PC = 0x48;
             IORegisters.IF &= ~0x02;
         }
         else if (interruptsToHandle & 0x04) { // Timer
-            console.log("Timer Handled");
             Registers.PC = 0x50;
             IORegisters.IF &= ~0x04;
         }
         else if (interruptsToHandle & 0x08) { // Serial
-            console.log("Serial Handled");
             Registers.PC = 0x58;
             IORegisters.IF &= ~0x08;
         }
         else if (interruptsToHandle & 0x10) { // Joypad
-            console.log("Joypad Handled");
             Registers.PC = 0x60;
             IORegisters.IF &= ~0x10;
         }

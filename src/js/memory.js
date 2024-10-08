@@ -1,7 +1,7 @@
 const MBCRegisters = {
     RAMEnable: 0x00,
     ROMBankNumber: 0x01,
-    RAMBankNumber: 0x01,
+    RAMBankNumber: 0x00,
     WRAMBankNumber: 0x01,
     bankingModeSelect: 0x00,
     RTC: 0x00,
@@ -17,7 +17,7 @@ const IORegisters = {
     timerModulo: 0x00,
     timerControl: 0x00,
     interruptFlag: 0xE0, // Interrupt flag
-    LCDC: 0x00, // LCD Control
+    LCDC: 0x80, // LCD Control
     LY: 0x00, // LCD Y-coordinate
     LYC: 0x00, // LY Compare
     STAT: 0x00, // LCD status
@@ -198,7 +198,7 @@ function writeIO(addr, val) {
  */
 function generalRead(addr) {
     if (addr >= 0x8000 && addr <= 0x9FFF) {
-        if (IORegisters.VRAMBankNumber === 0) {
+        if (IORegisters.VRAMBankNumber === 0 || !Globals.metadata.supportsColor) {
             return Globals.VRAM0[addr - 0x8000];
         }
         else {
@@ -237,7 +237,7 @@ function generalRead(addr) {
  */
 function generalWrite(addr, val) {
     if (addr >= 0x8000 && addr <= 0x9FFF) {
-        if (IORegisters.VRAMBankNumber === 0) {
+        if (IORegisters.VRAMBankNumber === 0 || !Globals.metadata.supportsColor) {
             Globals.VRAM0[addr - 0x8000] = val;
             return;
         }
@@ -313,25 +313,48 @@ function writeMBCNone(addr, val) {
 //// MBC1 ////
 
 /**
+ * If the banking mode is 1, translate the address
+ * https://gbdev.io/pandocs/MBC1.html#addressing-diagrams
+ * @param {number} addr 
+ * @returns Banking mode address
+ */
+function getMBC1BankingModeAddress(addr) {
+    if (MBCRegisters.bankingModeSelect === 0x01) {
+        if (addr <= 0x3FFF) {
+            addr = addr | (MBCRegisters.RAMBankNumber << 19);
+        }
+        else if (addr <= 0x7FFF) {
+            addr = addr | (MBCRegisters.RAMBankNumber << 19) | (MBCRegisters.ROMBankNumber << 14);
+        }
+        else if (addr >= 0xA000 && addr <= 0xBFFF) {
+            addr = (addr & 0x1fff) | (MBCRegisters.RAMBankNumber << 13);
+        }
+    }
+    return addr;
+}
+
+/**
  * 
  * @param {number} addr 
  * @returns {number}
  */
 function readMBC1(addr) {
+    addr = getMBC1BankingModeAddress(addr);
+
     if (addr <= 0x3FFF) {
         return Globals.ROM[addr];
     }
     else if (addr <= 0x7FFF) {
-        return Globals.ROM[(addr - 0x4000) + (MBCRegisters.ROMBankNumber & 0x1F) * 16 * BYTE_VALUES.KiB];
-    }
-    else if (addr >= 0xA000 && addr <= 0xBFFF) {
         // Treats bank 0 as bank 1
-        if (MBCRegisters.RAMBankNumber == 0) {
-            return Globals.cartridgeRAM[(addr - 0xA000) + 8 * BYTE_VALUES.KiB];
+        if (MBCRegisters.ROMBankNumber === 0) {
+            return Globals.ROM[(addr - 0x4000) + 16 * BYTE_VALUES.KiB];
         }
         else {
-            return Globals.cartridgeRAM[(addr - 0xA000) + MBCRegisters.RAMBankNumber * 8 * BYTE_VALUES.KiB];
+            return Globals.ROM[(addr - 0x4000) + (MBCRegisters.ROMBankNumber & 0x1F) * 16 * BYTE_VALUES.KiB];
         }
+    }
+    else if (addr >= 0xA000 && addr <= 0xBFFF) {
+        return Globals.cartridgeRAM[(addr - 0xA000) + MBCRegisters.RAMBankNumber * 8 * BYTE_VALUES.KiB];
     }
 
     return generalRead(addr);
@@ -343,6 +366,8 @@ function readMBC1(addr) {
  * @param {number} val 
  */
 function writeMBC1(addr, val) {
+    addr = getMBC1BankingModeAddress(addr);
+
     if (addr <= 0x1FFF) {
         MBCRegisters.RAMEnable = val;
     }
@@ -350,10 +375,10 @@ function writeMBC1(addr, val) {
         MBCRegisters.ROMBankNumber = val & 0x1F;
     }
     else if (addr <= 0x5FFF) {
-        MBCRegisters.RAMBankNumber = val;
+        MBCRegisters.RAMBankNumber = val & 0x03;
     }
     else if (addr <= 0x7FFF) {
-        MBCRegisters.bankingModeSelect = val;
+        MBCRegisters.bankingModeSelect = val & 0x1;
     }
     else if (addr >= 0xA000 && addr <= 0xBFFF) {
         Globals.cartridgeRAM[(addr - 0xA000) + MBCRegisters.RAMBankNumber * 8 * BYTE_VALUES.KiB] = val;

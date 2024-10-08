@@ -16,7 +16,7 @@ const IORegisters = {
     timerCounter: 0x00,
     timerModulo: 0x00,
     timerControl: 0x00,
-    interruptFlag: 0xE0, // Interrupt flag
+    IF: 0xE0, // Interrupt flag
     LCDC: 0x80, // LCD Control
     LY: 0x00, // LCD Y-coordinate
     LYC: 0x00, // LY Compare
@@ -57,7 +57,7 @@ function readIO(addr) {
         case 0x07:
             return IORegisters.timerControl;
         case 0x0F:
-            return IORegisters.interruptFlag;
+            return IORegisters.IF;
         case 0x40:
             return IORegisters.LCDC;
         case 0x41:
@@ -130,7 +130,7 @@ function writeIO(addr, val) {
             IORegisters.timerControl = val;
             return;
         case 0x0F:
-            IORegisters.interruptFlag = val;
+            IORegisters.IF = val;
             return;
         case 0x40:
             // Reset LY to 0 when lcd is turned off
@@ -287,6 +287,9 @@ function readMBCNone(addr) {
         return Globals.ROM[addr];
     }
     else if (addr <= 0xBFFF) {
+        if (!Globals.cartridgeRAM) {
+            return 0xFF;
+        }
         return Globals.cartridgeRAM[addr];
     }
 
@@ -303,7 +306,9 @@ function writeMBCNone(addr, val) {
         Globals.ROM[addr] = val;
     }
     else if (addr >= 0xA000 && addr <= 0xBFFF) {
-        Globals.cartridgeRAM[addr] = val;
+        if (Globals.cartridgeRAM) {
+            Globals.cartridgeRAM[addr] = val;
+        }
     }
     else {
         generalWrite(addr, val);
@@ -354,6 +359,9 @@ function readMBC1(addr) {
         }
     }
     else if (addr >= 0xA000 && addr <= 0xBFFF) {
+        if (!Globals.cartridgeRAM) {
+            return 0xFF;
+        }
         return Globals.cartridgeRAM[(addr - 0xA000) + MBCRegisters.RAMBankNumber * 8 * BYTE_VALUES.KiB];
     }
 
@@ -381,7 +389,9 @@ function writeMBC1(addr, val) {
         MBCRegisters.bankingModeSelect = val & 0x1;
     }
     else if (addr >= 0xA000 && addr <= 0xBFFF) {
-        Globals.cartridgeRAM[(addr - 0xA000) + MBCRegisters.RAMBankNumber * 8 * BYTE_VALUES.KiB] = val;
+        if (Globals.cartridgeRAM) {
+            Globals.cartridgeRAM[(addr - 0xA000) + MBCRegisters.RAMBankNumber * 8 * BYTE_VALUES.KiB] = val;
+        }
     }
     else {
         generalWrite(addr, val);

@@ -201,7 +201,7 @@ function doLCDUpdate() {
         }
 
         if (IORegisters.STAT & mask) {
-            IORegisters.interruptFlag |= 0x02;
+            IORegisters.IF |= 0x02;
         }
     }
 
@@ -219,7 +219,7 @@ function doLCDUpdate() {
 
                     // Set flags
                     if (IORegisters.LY == 144) { // Reached the end of the screen
-                        IORegisters.interruptFlag |= 0x01; // Raise VBLANK interrupt
+                        IORegisters.IF |= 0x01; // Raise VBLANK interrupt
                         changeLCDMode(1);
                     }
                     else {
@@ -232,7 +232,7 @@ function doLCDUpdate() {
 
                         // Enable LCD Interrupt if mode LYC interrupt is selected
                         if (IORegisters.STAT & 0x40) {
-                            IORegisters.interruptFlag |= 0x02;
+                            IORegisters.IF |= 0x02;
                         }
                     }
                     else {
@@ -256,7 +256,7 @@ function doLCDUpdate() {
 
                         // Enable LCD Interrupt if mode LYC interrupt is selected
                         if (IORegisters.STAT & 0x40) {
-                            IORegisters.interruptFlag |= 0x02;
+                            IORegisters.IF |= 0x02;
                         }
                     }
                     else {
@@ -350,8 +350,8 @@ function doTimerUpdate() {
         IORegisters.timerCounter += Math.floor(cycleDelta / timerIncrementPeriod);
         IOValues.timerCycles = Globals.cycleNumber;
         if (IORegisters.timerCounter > 0xFF) {
-            IORegisters.timerCounter = IORegisters.timerModulo;
-            IORegisters.interruptFlag |= 0x4;
+            IORegisters.timerCounter = IORegisters.timerModulo + (IORegisters >> 8);
+            IORegisters.IF |= 0x4;
         }
     }
 }

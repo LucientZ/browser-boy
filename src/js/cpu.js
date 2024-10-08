@@ -132,6 +132,7 @@ function decrement16Bit(a) {
 function add8Bit(a, b) {
     Registers.Fh = ((a & 0x0F) + (b & 0x0F)) >> 4;
     const result = (a + b) & 0xFF;
+    Registers.Fc = (a + b) > 0xFF;
     Registers.Fz = !result;
     Registers.Fn = 0;
     return result;
@@ -336,7 +337,6 @@ function doArithmeticInstruction(instruction) {
             Registers.Fn = 0;
             Registers.Fh = 0;
             Registers.Fc = 0;
-            Registers.Fz = !value;
             break;
         case 6: // OR
             Registers.A |= value;
@@ -816,7 +816,6 @@ const opcodeTable8Bit = {
     0x76: () => {
         // HALT
         Globals.halted = true;
-        Globals.IME = 1;
         Globals.cycleNumber++;
     },
     // GAP of Load Instructions 0x77-0x7F
@@ -1369,40 +1368,47 @@ function doNext8BitInstruction() {
 
 /////////////////////// Interrupts ///////////////////////
 
+/**
+ * https://gbdev.io/pandocs/Interrupts.html?highlight=interrupt%20flag#interrupt-handling
+ */
 function handleInterrupts() {
-    const interruptsToHandle = Globals.IE & IORegisters.interruptFlag;
+    const interruptsToHandle = Globals.IE & IORegisters.IF;
+
+    // HALT bug simulation
+    if (!Globals.IME && interruptsToHandle) {
+        Globals.halted = false;
+    }
+
     if (Globals.IME && interruptsToHandle) {
         doPush(Registers.PC);
-        Globals.halted = false;
-        Globals.standby = false;
 
         // Moves program counter to various interrupt handlers
         if (interruptsToHandle & 0x01) { // VBLANK
             console.log("VBLANK Handled");
             Registers.PC = 0x40;
-            IORegisters.interruptFlag &= ~0x01;
+            IORegisters.IF &= ~0x01;
         }
         else if (interruptsToHandle & 0x02) { // LCD STAT
             console.log("LCD STAT Handled");
             Registers.PC = 0x48;
-            IORegisters.interruptFlag &= ~0x02;
+            IORegisters.IF &= ~0x02;
         }
         else if (interruptsToHandle & 0x04) { // Timer
             console.log("Timer Handled");
             Registers.PC = 0x50;
-            IORegisters.interruptFlag &= ~0x04;
+            IORegisters.IF &= ~0x04;
         }
         else if (interruptsToHandle & 0x08) { // Serial
             console.log("Serial Handled");
             Registers.PC = 0x58;
-            IORegisters.interruptFlag &= ~0x08;
+            IORegisters.IF &= ~0x08;
         }
         else if (interruptsToHandle & 0x10) { // Joypad
             console.log("Joypad Handled");
             Registers.PC = 0x60;
-            IORegisters.interruptFlag &= ~0x10;
+            IORegisters.IF &= ~0x10;
         }
         Globals.IME = 0;
-        Globals.cycleNumber += 2;
+        Globals.cycleNumber += 5;
     }
 }

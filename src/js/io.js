@@ -120,6 +120,7 @@ function drawLCDLine(line) {
             // Used for tile data calcs
             const left = IORegisters.SCX;
             const right = (IORegisters.SCX + 159) % 256;
+            const tileRow = (IORegisters.SCY + line) % 8;
             const tileY = (Math.floor((IORegisters.SCY + line) / 8)) % 32;
             let tileX;
 
@@ -129,7 +130,6 @@ function drawLCDLine(line) {
                 tileX = ((Math.floor(IORegisters.SCX / 8)) + i) % 32;
                 const tileMapAddress = 0x9800 | (tileMapSelected << 10) | ((tileY & 0x1F) << 5) | (tileX & 0x1F);
                 const tileNumber = generalRead(tileMapAddress);
-                const tileRow = (IORegisters.SCY + line) % 8;
                 const tileBlockAddress = (
                     tileNumber < 128 ?
                         tileBankBaseAddress0 + tileNumber * 0x10 :
@@ -164,16 +164,63 @@ function drawLCDLine(line) {
                         color = pixel;
                     }
 
-                    const priority = Globals.metadata.supportsColor ? false : pixel !== 0; // TODO Gameboy Color Implemenation
+                    const priority = Globals.metadata.supportsColor ? false : pixel !== 0; // TODO Gameboy Color Implementation
                     renderPixel(column++, line, color, priority);
                 }
             }
         }
 
 
-        // Draw Window if enabled
-        if ((IORegisters.LCDC & 0x20) && IORegisters.WY >= IORegisters.LY && IORegisters.WX <= 166) {
+        // Draw Window if enabled and we're in the window drawing area
+        if ((IORegisters.LCDC & 0x20) && IORegisters.WY >= line && IORegisters.WX <= 166) {
+            const tileY = (Math.floor((IORegisters.WY - line) / 8)) % 32;
+            let tileX;
 
+            const tileRow = (IORegisters.WY + line) % 8;
+            const tileCount = Math.floor(174 - IORegisters.WX / 8); // 22 tiles max
+
+            for (let i = 0; i < tileCount; i++) {
+                tileX = i % 32;
+                const tileMapAddress = 0x9800 | (tileMapSelected << 10) | ((tileY & 0x1F) << 5) | (tileX & 0x1F);
+                const tileNumber = generalRead(tileMapAddress);
+                const tileBlockAddress = (
+                    tileNumber < 128 ?
+                        tileBankBaseAddress0 + tileNumber * 0x10 :
+                        tileBankBaseAddress1 + (tileNumber - 128) * 0x10
+                );
+                const tileDataAddress = tileBlockAddress + tileRow * 2;
+                const tileData = extractPixelsFromBytes(generalRead(tileDataAddress), generalRead(tileDataAddress + 1));
+
+                for (let j = 0; j < tileData.length; j++) {
+                    const pixel = tileData[j];
+
+                    // DMG takes from a register for the palette.  
+                    let color;
+                    if (!Globals.metadata.supportsColor) {
+                        switch (pixel) {
+                            case 0x0:
+                                color = (IORegisters.backgroundPalette & 0x03);
+                                break;
+                            case 0x1:
+                                color = (IORegisters.backgroundPalette & 0x0C) >> 2;
+                                break;
+                            case 0x2:
+                                color = (IORegisters.backgroundPalette & 0x30) >> 4;
+                                break;
+                            case 0x3:
+                                color = (IORegisters.backgroundPalette & 0xC0) >> 6;
+                                break;
+                        }
+                    }
+                    else {
+                        color = pixel;
+                    }
+
+                    const priority = Globals.metadata.supportsColor ? false : pixel !== 0; // TODO Gameboy Color Implementation
+                    renderPixel(IORegisters.WX + i * 8 + j, line, pixel, priority);
+                }
+
+            }
         }
     }
     else {

@@ -56,7 +56,7 @@ const IORegisters = {
 const IOValues = {
     LCDCycles: 0x00,
     videoBuffer: new Uint16Array(144 * 160),
-    defaultColorPalette: [0x7fff, 0x7bde, 0x39ce, 0x0000], // Default color palette of the gameboy (DMG)
+    defaultColorPalette: [0x7fff, 0x5ad6, 0x39ce, 0x0000], // Default color palette of the gameboy (DMG)
     timerCycles: 0x00,
     transferCycles: 0x00,
     nextPC: null, // NULL if there is no nextPC

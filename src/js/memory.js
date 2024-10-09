@@ -515,7 +515,7 @@ function readMBC3(addr) {
         // MBC 3 will read/write to the real time clock if selecting a ram bank higher than 7
         if (MBCRegisters.RAMBankNumber <= 0x07) {
             // Treats bank 0 as bank 1
-            if (MBCRegisters.ROMBankNumber == 0) {
+            if (MBCRegisters.RAMBankNumber == 0) {
                 return Globals.cartridgeRAM[(addr - 0xA000) + 8 * BYTE_VALUES.KiB];
             }
             else {
@@ -571,7 +571,7 @@ function writeMBC3(addr, val) {
         // MBC 3 will read/write to the real time clock if selecting a ram bank higher than 7
         if (MBCRegisters.RAMBankNumber <= 0x07) {
             // Treats bank 0 as bank 1
-            if (MBCRegisters.ROMBankNumber == 0) {
+            if (MBCRegisters.RAMBankNumber == 0) {
                 Globals.cartridgeRAM[(addr - 0xA000) + 8 * BYTE_VALUES.KiB] = val;
                 return;
             }

@@ -31,14 +31,18 @@ function writePixelToScreen(x, y, color, ctx) {
  * Writes a single pixel value to the screen buffer
  * @param {number} x x-position on the LCD screen
  * @param {number} y y-position on the LCD screen
- * @param {number} color Must be 5-bit encoded
+ * @param {number} color Must be 5-bit encoded. Use bit unused 15 for priority
+ * @param {boolean} priority Says whether a pixel will be drawn over other pixels
  */
 function writePixelToBuffer(x, y, color, priority = true) {
     const index = x + y * 160;
-    if (priority == false && IOValues.videoBuffer[index] != 0xFFFF) {
+    if (!priority &&
+        IOValues.videoBuffer[index] !== 0xFFFF &&
+        IOValues.videoBuffer[index] !== 0x7FFF &&
+        (IOValues.videoBuffer[index] & 0x8000)) {
         return;
     }
-    IOValues.videoBuffer[index] = color;
+    IOValues.videoBuffer[index] = (priority << 15) | color;
 }
 
 
@@ -47,7 +51,7 @@ function writePixelToBuffer(x, y, color, priority = true) {
  * @param {number} x x-position on the LCD screen
  * @param {number} y y-position on the LCD screen
  * @param {number} color Must be in the set {00, 01, 10, 11}
- * @param {number} priority Says whether a pixel will be drawn over the background
+ * @param {boolean} priority Says whether a pixel will be drawn over the background
  */
 function renderPixel(x, y, value, priority = true, palette = IOValues.defaultColorPalette) {
     if (!Globals.metadata.supportsColor) {
@@ -64,6 +68,11 @@ function flushVideoBuffer() {
         const x = i % 160;
         const y = Math.floor(i / 160);
         writePixelToScreen(x, y, color);
+
+        // Removes priority to already rendered pixels
+        if (y !== IORegisters.LY) {
+            IOValues.videoBuffer[i] &= 0x7fff;
+        }
     }
 }
 

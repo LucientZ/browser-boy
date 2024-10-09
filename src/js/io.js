@@ -128,7 +128,7 @@ function drawLCDLine(line) {
 
             // Draw 21 tiles since 160/8 = 20 and there is one overflow tile
             let column = 0;
-            for (let i = 0; i < 21; i++) {
+            for (let i = 0; i < 20; i++) {
                 tileX = ((Math.floor(IORegisters.SCX / 8)) + i) % 32;
                 const tileMapAddress = 0x9800 | (backgroundTileMapSelected << 10) | ((tileY & 0x1F) << 5) | (tileX & 0x1F);
                 const tileNumber = generalRead(tileMapAddress);
@@ -334,7 +334,7 @@ function drawLCDLine(line) {
                 else {
                     color = pixel;
                 }
-                renderPixel(spriteX + i, line, color, !(flags & 0x80));
+                renderPixel((spriteX - 8) + i, line, color, !(flags & 0x80));
             }
         }
     }

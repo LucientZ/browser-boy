@@ -179,7 +179,7 @@ function drawLCDLine(line) {
     else {
         // Draw "clear" pixels (white) when background is off
         for (let i = 0; i < 160; i++) {
-            writePixelToScreen(i, IORegisters.LY, 0xFFFF);
+            writePixelToScreen(i, IORegisters.LY, 0x7FFF);
         }
     }
 
@@ -528,6 +528,11 @@ document.addEventListener("keydown", (event) => {
     }
     else if (selectKeys.includes(event.key)) {
         IOValues.selectPressed = true;
+    }
+
+    if ((IORegisters.joypad & 0x10) && (upKeys.includes(event.key) || downKeys.includes(event.key) || leftKeys.includes(event.key) || rightKeys.includes(event.key)) ||
+        (IORegisters.joypad & 0x20) && (aButtonKeys.includes(event.key) || bButtonKeys.includes(event.key) || startKeys.includes(event.key) || selectKeys.includes(event.key))) {
+        IORegisters.IF |= 0x10;
     }
 });
 

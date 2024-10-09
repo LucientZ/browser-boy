@@ -547,8 +547,8 @@ const upKeys = ["ArrowUp", "w", "W"];
 const downKeys = ["ArrowDown", "s", "S"];
 const leftKeys = ["ArrowLeft", "a", "A"];
 const rightKeys = ["ArrowRight", "d", "D"];
-const aButtonKeys = ["z", "Z"];
-const bButtonKeys = ["x", "X"];
+const aButtonKeys = ["z", "Z", "n", "N"];
+const bButtonKeys = ["x", "X", "m", "M"];
 const startKeys = ["1"];
 const selectKeys = ["2"];
 

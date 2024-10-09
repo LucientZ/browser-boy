@@ -258,7 +258,7 @@ function drawLCDLine(line) {
                 }
                 let color;
                 if (!Globals.metadata.supportsColor) {
-                    const palette = (flags & 0x10) ? IORegisters.OBP0 : IORegisters.OBP1;
+                    const palette = (flags & 0x10) ? IORegisters.OBP1 : IORegisters.OBP0;
                     switch (pixel) {
                         case 0x0:
                             color = (palette & 0x03);

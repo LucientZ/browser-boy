@@ -114,7 +114,7 @@ function drawLCDLine(line) {
         // Used for addressing
         const tileBankBaseAddress0 = (IORegisters.LCDC & 0x10) ? 0x8000 : 0x9000;
         const tileBankBaseAddress1 = 0x8800;
-        const tileMapSelected = (IORegisters.LCDC & 0x08) >> 3;
+        const backgroundTileMapSelected = (IORegisters.LCDC & 0x08) >> 3;
         // Draw background
         {
             // Used for tile data calcs
@@ -128,7 +128,7 @@ function drawLCDLine(line) {
             let column = 0;
             for (let i = 0; i < 21; i++) {
                 tileX = ((Math.floor(IORegisters.SCX / 8)) + i) % 32;
-                const tileMapAddress = 0x9800 | (tileMapSelected << 10) | ((tileY & 0x1F) << 5) | (tileX & 0x1F);
+                const tileMapAddress = 0x9800 | (backgroundTileMapSelected << 10) | ((tileY & 0x1F) << 5) | (tileX & 0x1F);
                 const tileNumber = generalRead(tileMapAddress);
                 const tileBlockAddress = (
                     tileNumber < 128 ?
@@ -172,8 +172,9 @@ function drawLCDLine(line) {
 
 
         // Draw Window if enabled and we're in the window drawing area
-        if ((IORegisters.LCDC & 0x20) && IORegisters.WY >= line && IORegisters.WX <= 166) {
-            const tileY = (Math.floor((IORegisters.WY - line) / 8)) % 32;
+        if ((IORegisters.LCDC & 0x20) && IORegisters.WY <= line && IORegisters.WX <= 166 && IORegisters.WY <= 143) {
+            const windowTileMapSelected = (IORegisters.LCDC & 0x40 >> 6);
+            const tileY = (Math.floor((line - IORegisters.WY) / 8)) % 32;
             let tileX;
 
             const tileRow = (IORegisters.WY + line) % 8;
@@ -181,7 +182,7 @@ function drawLCDLine(line) {
 
             for (let i = 0; i < tileCount; i++) {
                 tileX = i % 32;
-                const tileMapAddress = 0x9800 | (tileMapSelected << 10) | ((tileY & 0x1F) << 5) | (tileX & 0x1F);
+                const tileMapAddress = 0x9800 | (windowTileMapSelected << 10) | ((tileY & 0x1F) << 5) | (tileX & 0x1F);
                 const tileNumber = generalRead(tileMapAddress);
                 const tileBlockAddress = (
                     tileNumber < 128 ?

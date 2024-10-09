@@ -31,13 +31,13 @@ function writePixelToScreen(x, y, color, ctx) {
  * Writes a single pixel value to the screen buffer
  * @param {number} x x-position on the LCD screen
  * @param {number} y y-position on the LCD screen
- * @param {number} color Must be 5-bit encoded. Use bit unused 15 for priority
+ * @param {number} color Must be 5-bit encoded. Use unused bit 15 for priority
  * @param {boolean} priority Says whether a pixel will be drawn over other pixels
- * @param {boolean} hasTransparency Says whether a pixel has transparency
+ * @param {boolean} overwritePrevious Says whether a pixel will replace the previous pixel no matter the priority
  */
-function writePixelToBuffer(x, y, color, priority = true, hasTransparency = true) {
+function writePixelToBuffer(x, y, color, priority = true, overwritePrevious = false) {
     const index = x + y * 160;
-    if (!priority && (IOValues.videoBuffer[index] & 0x8000) && hasTransparency) {
+    if (!priority && !overwritePrevious && (IOValues.videoBuffer[index] & 0x8000)) {
         return;
     }
     IOValues.videoBuffer[index] = (priority << 15) | color;
@@ -50,14 +50,14 @@ function writePixelToBuffer(x, y, color, priority = true, hasTransparency = true
  * @param {number} y y-position on the LCD screen
  * @param {number} color Must be in the set {00, 01, 10, 11}
  * @param {boolean} priority Says whether a pixel will be drawn over the background
- * @param {boolean} hasTransparency Says whether a pixel has transparency
+ * @param {boolean} overwritePrevious Says whether a pixel will replace the previous pixel no matter the priority
  */
-function renderPixel(x, y, value, priority = true, hasTransparency = true, palette = IOValues.defaultColorPalette) {
+function renderPixel(x, y, value, priority = true, overwritePrevious = false, palette = IOValues.defaultColorPalette) {
     if (!Globals.metadata.supportsColor) {
-        writePixelToBuffer(x, y, IOValues.defaultColorPalette[value], priority, hasTransparency);
+        writePixelToBuffer(x, y, IOValues.defaultColorPalette[value], priority, overwritePrevious);
     }
     else {
-        writePixelToBuffer(x, y, palette[value], priority, hasTransparency); // TODO Support Color Actually
+        writePixelToBuffer(x, y, palette[value], priority, overwritePrevious); // TODO Support Color Actually
     }
 }
 
@@ -128,7 +128,7 @@ function drawLCDLine(line) {
 
             // Draw 21 tiles since 160/8 = 20 and there is one overflow tile
             let column = 0;
-            for (let i = 0; i < 20; i++) {
+            for (let i = 0; i < 21; i++) {
                 tileX = ((Math.floor(IORegisters.SCX / 8)) + i) % 32;
                 const tileMapAddress = 0x9800 | (backgroundTileMapSelected << 10) | ((tileY & 0x1F) << 5) | (tileX & 0x1F);
                 const tileNumber = generalRead(tileMapAddress);
@@ -167,7 +167,7 @@ function drawLCDLine(line) {
                     }
 
                     const priority = Globals.metadata.supportsColor ? false : pixel !== 0; // TODO Gameboy Color Implementation
-                    renderPixel(column++, line, color, priority);
+                    renderPixel(column++, line, color, priority, true);
                 }
             }
         }
@@ -219,8 +219,8 @@ function drawLCDLine(line) {
                         color = pixel;
                     }
 
-                    const priority = Globals.metadata.supportsColor ? false : pixel !== 0; // TODO Gameboy Color Implementation
-                    renderPixel((IORegisters.WX - 7) + i * 8 + j, line, color, priority, false);
+                    const priority = Globals.metadata.supportsColor ? false : true; // TODO Gameboy Color Implementation
+                    renderPixel((IORegisters.WX - 7) + i * 8 + j, line, color, priority);
                 }
 
             }
@@ -338,8 +338,6 @@ function drawLCDLine(line) {
             }
         }
     }
-
-
 }
 
 /**
@@ -491,6 +489,9 @@ function updateVRAMInspector() {
     }
 }
 
+/**
+ * Transfers a selected address space to the Object Attribute Memory
+ */
 function doDMATransfer() {
     const cycleDelta = Globals.cycleNumber - IOValues.transferCycles;
 
@@ -502,6 +503,27 @@ function doDMATransfer() {
         }
         Globals.HRAM[0x46] = 0x00;
     }
+}
+
+/**
+ * Only works on gameboy color.
+ * Transfers a selected address space to VRAM.
+ * https://gbdev.io/pandocs/CGB_Registers.html#ff51ff52--hdma1-hdma2-cgb-mode-only-vram-dma-source-high-low-write-only
+ * Technically, this shouldn't be instant, but I made it this way because I am lazy.
+*/
+function doHDMATransfer() {
+    let source = (Globals.HRAM[0x51] | (Globals.HRAM[0x52] << 8)) & 0xFFF0;
+    let destination = ((Globals.HRAM[0x53] | (Globals.HRAM[0x54] << 8)) & 0x0FF0) | 0x8000;
+    const length = ((Globals.HRAM[0x55] & 0x7F) + 1) << 1;
+
+    console.log(source.toString(16), destination.toString(16), length);
+    for (let i = 0; i < length; i++, source++, destination++) {
+        gameboyWrite(destination, gameboyRead(source));
+    }
+
+    IOValues.HDMATransferRequested = false;
+    Globals.HRAM[0x55] = 0xFF;
+    Globals.LCDC |= 0x10;
 }
 
 /////////////////////// Timer Stuff ///////////////////////

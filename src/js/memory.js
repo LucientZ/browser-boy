@@ -59,7 +59,7 @@ const IOValues = {
     defaultColorPalette: [0x7fff, 0x5ad6, 0x39ce, 0x0000], // Default color palette of the gameboy (DMG)
     timerCycles: 0x00,
     transferCycles: 0x00,
-    nextPC: null, // NULL if there is no nextPC
+    HDMATransferRequested: false,
     upPressed: false,
     downPressed: false,
     leftPressed: false,
@@ -230,6 +230,9 @@ function writeIO(addr, val) {
         case 0x50:
             IORegisters.bootROMDisabled = val;
             return;
+        case 0x55:
+            IOValues.HDMATransferRequested = true;
+            break;
         case 0x70:
             MBCRegisters.WRAMBankNumber = val;
             return;

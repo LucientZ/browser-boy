@@ -257,9 +257,6 @@ function parseROM(rom) {
 }
 
 function doProgramIteration() {
-    if (Globals.HRAM[0x46] !== 0) {
-        doDMATransfer();
-    }
     doLCDUpdate();
     doTimerUpdate();
     handleInterrupts();
@@ -268,6 +265,15 @@ function doProgramIteration() {
     }
     else {
         Globals.cycleNumber++;
+    }
+
+    if (Globals.HRAM[0x46] !== 0) {
+        doDMATransfer();
+    }
+
+    // GBC only
+    if (IOValues.HDMATransferRequested && Globals.metadata.supportsColor) {
+        doHDMATransfer();
     }
 }
 

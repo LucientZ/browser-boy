@@ -183,7 +183,7 @@ function drawLCDLine(line) {
             const tileCount = Math.floor((174 - IORegisters.WX) / 8); // 22 tiles max
 
             for (let i = 0; i < tileCount; i++) {
-                tileX = i % 32;
+                tileX = i;
                 const tileMapAddress = 0x9800 | (windowTileMapSelected << 10) | ((tileY & 0x1F) << 5) | (tileX & 0x1F);
                 const tileNumber = generalRead(tileMapAddress);
                 const tileBlockAddress = (
@@ -220,7 +220,7 @@ function drawLCDLine(line) {
                     }
 
                     const priority = Globals.metadata.supportsColor ? false : pixel !== 0; // TODO Gameboy Color Implementation
-                    renderPixel(IORegisters.WX + i * 8 + j, line, color, priority, false);
+                    renderPixel((IORegisters.WX - 7) + i * 8 + j, line, color, priority, false);
                 }
 
             }

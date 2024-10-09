@@ -31,6 +31,7 @@ async function dropHandler(event) {
         try {
             parseROM(Globals.ROM);
             document.getElementById("game-title").innerText = `${Globals.metadata.title} Version ${Globals.ROM[ROMHeaderAddresses.ROM_VERSION]}`;
+            resetRegs();
         }
         catch (error) {
             alert(error);
@@ -39,6 +40,56 @@ async function dropHandler(event) {
     Globals.halted = false;
 }
 
+/**
+ * Resets all registers to their default values
+ */
+function resetRegs() {
+    // CPU
+    Registers.A = 0x11;
+    Registers.Fz = 0x1; // Zero flag
+    Registers.Fn = 0x0; // Subtraction flag
+    Registers.Fh = 0x0; // Half Carry flag
+    Registers.Fc = 0x0; // Carry flag
+    Registers.B = 0x00;
+    Registers.C = 0x00;
+    Registers.D = 0xFF;
+    Registers.E = 0x08;
+    Registers.H = 0x01;
+    Registers.L = 0x0D;
+    Registers.SP = 0xFFFE; // Stack Pointer
+    Registers.PC = 0x0100; // Program counter
+
+    // MBC
+    MBCRegisters.RAMEnable = 0x00;
+    MBCRegisters.ROMBankNumber = 0x01;
+    MBCRegisters.RAMBankNumber = 0x00;
+    MBCRegisters.WRAMBankNumber = 0x01;
+    MBCRegisters.bankingModeSelect = 0x00;
+    MBCRegisters.RTC = 0x00;
+
+    // IO Registers
+    IORegisters.joypad = 0x00;
+    IORegisters.serialData = 0x00;
+    IORegisters.serialControl = 0x00;
+    IORegisters.divider = 0x00;
+    IORegisters.timerCounter = 0x00;
+    IORegisters.timerModulo = 0x00;
+    IORegisters.timerControl = 0x00;
+    IORegisters.IF = 0xE0;
+    IORegisters.LCDC = 0x80;
+    IORegisters.LY = 0x00;
+    IORegisters.LYC = 0x00;
+    IORegisters.STAT = 0x00;
+    IORegisters.SCY = 0x00;
+    IORegisters.SCX = 0x00;
+    IORegisters.WY = 0x00;
+    IORegisters.WX = 0x00;
+    IORegisters.backgroundPalette = 0x00;
+    IORegisters.OBP0 = 0x00;
+    IORegisters.OBP1 = 0x00;
+    IORegisters.VRAMBankNumber = 0x00;
+    IORegisters.bootROMDisabled = 0x00;
+}
 
 /**
  * 
@@ -219,7 +270,7 @@ function doProgramIteration() {
 
 setInterval(() => {
     if (Globals.ROM) {
-        for (let i = 0; i < 3000; i++) {
+        for (let i = 0; i < 30000; i++) {
             if (!Globals.frozen) {
                 doProgramIteration();
             }

@@ -178,7 +178,7 @@ function drawLCDLine(line) {
             let tileX;
 
             const tileRow = (IORegisters.WY + line) % 8;
-            const tileCount = Math.floor(174 - IORegisters.WX / 8); // 22 tiles max
+            const tileCount = Math.floor((174 - IORegisters.WX) / 8); // 22 tiles max
 
             for (let i = 0; i < tileCount; i++) {
                 tileX = i % 32;
@@ -278,7 +278,7 @@ function drawLCDLine(line) {
         for (const spriteNum of spritesToDraw) {
             const spriteY = Globals.OAM[spriteNum * 4];
             const spriteX = Globals.OAM[spriteNum * 4 + 1];
-            let spriteIndex = Globals.OAM[spriteNum * 4 + 2] + 1;
+            let spriteIndex = Globals.OAM[spriteNum * 4 + 2] + 1; // I'm really not sure why this needs to be offset by one, but I'll take it.
             const flags = Globals.OAM[spriteNum * 4 + 3];
 
             let VRAM = Globals.VRAM0;

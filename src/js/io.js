@@ -33,11 +33,11 @@ function writePixelToScreen(x, y, color, ctx) {
  * @param {number} y y-position on the LCD screen
  * @param {number} color Must be 5-bit encoded. Use unused bit 15 for priority
  * @param {boolean} priority Says whether a pixel will be drawn over other pixels
- * @param {boolean} overwritePrevious Says whether a pixel will replace the previous pixel no matter the priority
+ * @param {boolean} bypassPriority Says whether a pixel will replace the previous pixel no matter the priority
  */
-function writePixelToBuffer(x, y, color, priority = true, overwritePrevious = false) {
+function writePixelToBuffer(x, y, color, priority = true, bypassPriority = false) {
     const index = x + y * 160;
-    if (!priority && !overwritePrevious && (IOValues.videoBuffer[index] & 0x8000)) {
+    if (!priority && !bypassPriority && (IOValues.videoBuffer[index] & 0x8000)) {
         return;
     }
     IOValues.videoBuffer[index] = (priority << 15) | color;
@@ -50,14 +50,14 @@ function writePixelToBuffer(x, y, color, priority = true, overwritePrevious = fa
  * @param {number} y y-position on the LCD screen
  * @param {number} color Must be in the set {00, 01, 10, 11}
  * @param {boolean} priority Says whether a pixel will be drawn over the background
- * @param {boolean} overwritePrevious Says whether a pixel will replace the previous pixel no matter the priority
+ * @param {boolean} bypassPriority Says whether a pixel will replace the previous pixel no matter the priority
  */
-function renderPixel(x, y, value, priority = true, overwritePrevious = false, palette = IOValues.defaultColorPalette) {
+function renderPixel(x, y, value, priority = true, bypassPriority = false, palette = IOValues.defaultColorPalette) {
     if (!Globals.metadata.supportsColor) {
-        writePixelToBuffer(x, y, IOValues.defaultColorPalette[value], priority, overwritePrevious);
+        writePixelToBuffer(x, y, IOValues.defaultColorPalette[value], priority, bypassPriority);
     }
     else {
-        writePixelToBuffer(x, y, palette[value], priority, overwritePrevious); // TODO Support Color Actually
+        writePixelToBuffer(x, y, palette[value], priority, bypassPriority); // TODO Support Color Actually
     }
 }
 
@@ -102,7 +102,7 @@ function extractPixelsFromBytes(first, second) {
 
     return pixels;
 }
-let testTile = 32;
+
 /**
  * Draws a single line in the frame buffer
  * https://www.youtube.com/watch?v=_h5TXh20_fQ Great high level overview of how tiles work
@@ -493,7 +493,7 @@ function updateVRAMInspector() {
  * Transfers a selected address space to the Object Attribute Memory
  */
 function doDMATransfer() {
-    const cycleDelta = Globals.cycleNumber - IOValues.transferCycles;
+    const cycleDelta = Globals.cycleNumber - IOValues.DMATransferCycles;
 
     if (cycleDelta >= 160 && Globals.HRAM[0x46] !== 0) { // Do DMA transfer
         let source = (Globals.HRAM[0x46] << 8);
@@ -512,18 +512,30 @@ function doDMATransfer() {
  * Technically, this shouldn't be instant, but I made it this way because I am lazy.
 */
 function doHDMATransfer() {
-    let source = (Globals.HRAM[0x51] | (Globals.HRAM[0x52] << 8)) & 0xFFF0;
-    let destination = ((Globals.HRAM[0x53] | (Globals.HRAM[0x54] << 8)) & 0x0FF0) | 0x8000;
-    const length = ((Globals.HRAM[0x55] & 0x7F) + 1) << 1;
+    const blocksLeft = (Globals.HRAM[0x55] & 0x7F);
 
-    console.log(source.toString(16), destination.toString(16), length);
-    for (let i = 0; i < length; i++, source++, destination++) {
-        gameboyWrite(destination, gameboyRead(source));
+    let blocksTransferred = 0;
+    if (!(Globals.HRAM[0x55] & 0x80)) { // Transfer all data at once
+        for (let i = 0; i < blocksLeft * 0x10; i++) {
+            gameboyWrite(IOValues.HDMADestination++, gameboyRead(IOValues.HDMASource++));
+        }
+        Globals.HRAM[0x55] = 0xFF;
+        blocksTransferred = blocksLeft;
+    }
+    else if ((IORegisters.LY <= 143 && (IORegisters.STAT & 0x03) === 0x00)) { // Transfer 0x10 (16) bytes during each HBlank
+        for (let i = 0; i < 0x10; i++) {
+            gameboyWrite(IOValues.HDMADestination++, gameboyRead(IOValues.HDMASource++));
+        }
+        blocksLeft = (blocksLeft - 1) & 0x7F;
+        Globals.HRAM[0x55] = 0x80 | blocksLeft;
     }
 
-    IOValues.HDMATransferRequested = false;
-    Globals.HRAM[0x55] = 0xFF;
-    Globals.LCDC |= 0x10;
+    if (Globals.HRAM[0x55] = 0xFF) {
+        IOValues.HDMATransferRequested = false;
+    }
+
+    Globals.halted = false;
+    Globals.cycleNumber += (blocksTransferred >> 1) * (Globals.doubleSpeed ? 16 : 8);
 }
 
 /////////////////////// Timer Stuff ///////////////////////

@@ -58,8 +58,10 @@ const IOValues = {
     videoBuffer: new Uint16Array(144 * 160),
     defaultColorPalette: [0x7fff, 0x5ad6, 0x39ce, 0x0000], // Default color palette of the gameboy (DMG)
     timerCycles: 0x00,
-    transferCycles: 0x00,
-    HDMATransferRequested: false,
+    DMATransferCycles: 0x00,
+    HDMATransferCycles: 0x00,
+    HDMASource: 0x00,
+    HDMADestination: 0x00,
     upPressed: false,
     downPressed: false,
     leftPressed: false,
@@ -123,7 +125,7 @@ function readIO(addr) {
         case 0x45:
             return IORegisters.LYC;
         case 0x46:
-            IOValues.transferCycles = Globals.cycleNumber;
+            IOValues.DMATransferCycles = Globals.cycleNumber;
             break;
         case 0x47:
             return IORegisters.backgroundPalette;
@@ -232,6 +234,9 @@ function writeIO(addr, val) {
             return;
         case 0x55:
             IOValues.HDMATransferRequested = true;
+            IOValues.HDMATransferCycles = Globals.cycleNumber;
+            IOValues.HDMASource = ((Globals.HRAM[0x51] << 8) | (Globals.HRAM[0x52])) & 0xFFF0;
+            IOValues.HDMADestination = (((Globals.HRAM[0x53] << 8) | (Globals.HRAM[0x54])) & 0x1FF0) | 0x8000
             break;
         case 0x70:
             MBCRegisters.WRAMBankNumber = val;

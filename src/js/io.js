@@ -218,7 +218,7 @@ function drawLCDLine(line) {
                     }
 
                     const priority = Globals.metadata.supportsColor ? false : pixel !== 0; // TODO Gameboy Color Implementation
-                    renderPixel(IORegisters.WX + i * 8 + j, line, pixel, priority);
+                    renderPixel(IORegisters.WX + i * 8 + j, line, color, priority);
                 }
 
             }
@@ -238,7 +238,7 @@ function drawLCDLine(line) {
         // There are up to 40 sprites in the OAM
 
         const spritesToDraw = [];
-
+        const spriteHeight = (IORegisters.LCDC & 0x04) ? 16 : 8;
         for (let i = 0; i < 40; i++) {
             const spriteY = Globals.OAM[i * 4];
             const spriteX = Globals.OAM[i * 4 + 1];
@@ -247,7 +247,7 @@ function drawLCDLine(line) {
             if (spriteY === 0 ||
                 spriteY === 160 ||
                 spriteY > (line + 16) ||
-                spriteY + (IORegisters.LCDC & 0x04 ? 16 : 8) <= line ||
+                spriteY + spriteHeight <= line + 16 ||
                 spriteX === 0 ||
                 spriteX >= 168
             ) {
@@ -278,7 +278,7 @@ function drawLCDLine(line) {
         for (const spriteNum of spritesToDraw) {
             const spriteY = Globals.OAM[spriteNum * 4];
             const spriteX = Globals.OAM[spriteNum * 4 + 1];
-            let spriteIndex = Globals.OAM[spriteNum * 4 + 2];
+            let spriteIndex = Globals.OAM[spriteNum * 4 + 2] + 1;
             const flags = Globals.OAM[spriteNum * 4 + 3];
 
             let VRAM = Globals.VRAM0;
@@ -292,9 +292,9 @@ function drawLCDLine(line) {
             }
 
             // Get row to draw and flip y if necessary
-            let spriteRow = line + 16 - spriteY;
-            if (flags & 0x40) {
-                spriteRow = ((IORegisters.LCDC & 0x04) ? 16 : 8) - spriteRow - 1;
+            let spriteRow = line + spriteHeight - spriteY;
+            if ((flags & 0x40)) {
+                spriteRow = spriteHeight - spriteRow - 1;
             }
 
 

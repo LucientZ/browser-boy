@@ -1,3 +1,6 @@
+/**
+ * Registers in the MBC chip
+ */
 const MBCRegisters = {
     RAMEnable: 0x00,
     ROMBankNumber: 0x01,
@@ -8,6 +11,9 @@ const MBCRegisters = {
     builtInRAM: null, // Initializes on start if this is an MBC2 cartridge
 }
 
+/**
+ * Registers in HRAM (Named to make things easier)
+ */
 const IORegisters = {
     joypad: 0x00,
     serialData: 0x00,
@@ -30,6 +36,18 @@ const IORegisters = {
     OBP1: 0x00, // OBJ palette 0
     VRAMBankNumber: 0x00,
     bootROMDisabled: 0x00,
+}
+
+/**
+ * Values that are useful to track, but aren't actual registers
+ */
+const IOValues = {
+    LCDCycles: 0x00,
+    videoBuffer: new Uint16Array(144 * 160),
+    defaultColorPalette: [0xFFFF, 0x7bde, 0x39ce, 0x0000], // Default color palette of the gameboy (DMG)
+    timerCycles: 0x00,
+    transferCycles: 0x00,
+    nextPC: null, // NULL if there is no nextPC
 }
 
 //// IO read/write ops ////
@@ -70,6 +88,9 @@ function readIO(addr) {
             return IORegisters.LY;
         case 0x45:
             return IORegisters.LYC;
+        case 0x46:
+            IOValues.transferCycles = Globals.cycleNumber;
+            break;
         case 0x47:
             return IORegisters.backgroundPalette;
         case 0x48:

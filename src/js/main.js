@@ -257,6 +257,9 @@ function parseROM(rom) {
 }
 
 function doProgramIteration() {
+    if (Globals.HRAM[0x46] !== 0) {
+        doDMATransfer();
+    }
     doLCDUpdate();
     doTimerUpdate();
     handleInterrupts();
@@ -278,23 +281,11 @@ setInterval(() => {
     }
 });
 
-setInterval(() => {
-    output = "";
-    for (let address = 0x9800; address < 0x9C00; address++) {
-        output += `0x${generalRead(address).toString(16).padStart(2, "0")} `;
-        if (address % 32 === 31) {
-            output += "\n";
-        }
-    }
-    document.getElementById("vram-map-0").innerText = output;
-}, 1000);
-
 setInterval(flushVideoBuffer, 16.74);
 setInterval(() => {
     updateVRAMInspector();
     updateStackInspector();
 }, 1000);
-
 
 window.onload = () => {
     const screen = document.getElementById("game-screen");

@@ -13,17 +13,17 @@
  * https://gbdev.io/pandocs/Power_Up_Sequence.html#cpu-registers
  */
 const Registers = {
-    A: 0x01,
+    A: 0x11,
     Fz: 0x1, // Zero flag
     Fn: 0x0, // Subtraction flag
-    Fh: 0x1, // Half Carry flag
-    Fc: 0x1, // Carry flag
+    Fh: 0x0, // Half Carry flag
+    Fc: 0x0, // Carry flag
     B: 0x00,
-    C: 0x13,
-    D: 0x00,
-    E: 0xD8,
+    C: 0x00,
+    D: 0xFF,
+    E: 0x08,
     H: 0x01,
-    L: 0x4D,
+    L: 0x0D,
     SP: 0xFFFE, // Stack Pointer
     PC: 0x0100, // Program counter
 }
@@ -180,11 +180,11 @@ function doSignedRelativeJump() {
     Globals.cycleNumber += 3;
 }
 
-const stack = [];
+const callStack = [];
 
 function updateStackInspector() {
-    const output = stack.join("\n");
-    document.getElementById("stack").innerText = output;
+    const output = callStack.join("\n");
+    document.getElementById("call-stack").innerText = output;
 }
 
 function doJump() {
@@ -201,7 +201,6 @@ function doPop() {
     const firstByteRead = gameboyRead(Registers.SP++);
     const secondByteRead = gameboyRead(Registers.SP++);
     Globals.cycleNumber += 3;
-    stack.pop();
     return [firstByteRead, secondByteRead];
 }
 
@@ -212,7 +211,6 @@ function doPop() {
 function doPush(value) {
     gameboyWrite(--Registers.SP, (value >> 8));
     gameboyWrite(--Registers.SP, value & 0xFF);
-    stack.push(`0x${value.toString(16)}`);
     Globals.cycleNumber += 4;
 }
 
@@ -229,7 +227,7 @@ function doCall(address = undefined) {
 
     gameboyWrite(--Registers.SP, Registers.PC >> 8);
     gameboyWrite(--Registers.SP, Registers.PC & 0xFF);
-    stack.push(`Address 0x${Registers.SP.toString(16)}`);
+    callStack.push(`0x${Registers.SP.toString(16)}`);
     Registers.PC = address;
     Globals.cycleNumber += 3;
 }
@@ -238,7 +236,7 @@ function doCall(address = undefined) {
  * Pops the last value on the stack into PC
 */
 function doReturn() {
-    stack.pop();
+    callStack.pop();
     Registers.PC = gameboyRead(Registers.SP) | (gameboyRead(Registers.SP + 1) << 8);
     Registers.SP += 2;
     Globals.cycleNumber += 3;

@@ -16,6 +16,7 @@
 </head>
 
 <body id="rom-drop-zone" ondrop="dropHandler(event);" ondragover="dragOverHandler(event);">
+    <h1>Drag a game ROM on this page to start</h1>
     <h1 id="game-title">No Game Loaded</h1>
     </div>
     <div class="evenly-spaced-row">
@@ -29,8 +30,8 @@
             </div>
         </div>
         <div>
-            <h1>Stack</h1>
-            <p id="stack" class="stack-inspector"></p>
+            <h1>Call Stack</h1>
+            <p id="call-stack" class="call-stack-inspector"></p>
         </div>
     </div>
     <div class="evenly-spaced-row">
@@ -45,8 +46,6 @@
     </div>
     <h2>Serial Output:</h2>
     <p id="serial-output"></p>
-    <h2>VRAM Map 0</h2>
-    <p id="vram-map-0" style="overflow-x: scroll; white-space: nowrap;"></p>
 </body>
 
 </html>

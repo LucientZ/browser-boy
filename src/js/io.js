@@ -1,11 +1,3 @@
-const IOValues = {
-    LCDCycles: 0x00,
-    videoBuffer: new Uint16Array(144 * 160),
-    defaultColorPalette: [0xFFFF, 0x7bde, 0x39ce, 0x0000], // Default color palette of the gameboy (DMG)
-    timerCycles: 0x00,
-    nextPC: null, // NULL if there is no nextPC
-}
-
 /////////////////////// Screen Stuff ///////////////////////
 
 /**
@@ -41,8 +33,11 @@ function writePixelToScreen(x, y, color, ctx) {
  * @param {number} y y-position on the LCD screen
  * @param {number} color Must be 5-bit encoded
  */
-function writePixelToBuffer(x, y, color) {
+function writePixelToBuffer(x, y, color, priority = true) {
     const index = x + y * 160;
+    if (priority == false && IOValues.videoBuffer[index] != 0xFFFF) {
+        return;
+    }
     IOValues.videoBuffer[index] = color;
 }
 
@@ -51,14 +46,15 @@ function writePixelToBuffer(x, y, color) {
  * Writes a single pixel value to the screen buffer
  * @param {number} x x-position on the LCD screen
  * @param {number} y y-position on the LCD screen
- * @param {number} color Must be in the set {00, 01, 10, 11} (Brightest to darkest)
+ * @param {number} color Must be in the set {00, 01, 10, 11}
+ * @param {number} priority Says whether a pixel will be drawn over the background
  */
-function renderPixel(x, y, value) {
+function renderPixel(x, y, value, priority = true, palette = IOValues.defaultColorPalette) {
     if (!Globals.metadata.supportsColor) {
-        writePixelToBuffer(x, y, IOValues.defaultColorPalette[value]);
+        writePixelToBuffer(x, y, IOValues.defaultColorPalette[value], priority);
     }
     else {
-        writePixelToBuffer(x, y, IOValues.defaultColorPalette[value]); // TODO Support Color Actually
+        writePixelToBuffer(x, y, palette[value], priority); // TODO Support Color Actually
     }
 }
 
@@ -139,17 +135,39 @@ function drawLCDLine(line) {
                 const endTileColumn = (i === 21) ? (right % 8) : 7;
                 for (let j = startTileColumn; j <= endTileColumn; j++) {
                     const pixel = tileData[j];
-                    renderPixel(column++, line, pixel);
+
+                    // DMG takes from a register for the palette.  
+                    let color;
+                    if (!Globals.metadata.supportsColor) {
+                        switch (pixel) {
+                            case 0x0:
+                                color = (IORegisters.backgroundPalette & 0x03);
+                                break;
+                            case 0x1:
+                                color = (IORegisters.backgroundPalette & 0x0C) >> 2;
+                                break;
+                            case 0x2:
+                                color = (IORegisters.backgroundPalette & 0x30) >> 4;
+                                break;
+                            case 0x3:
+                                color = (IORegisters.backgroundPalette & 0xC0) >> 6;
+                                break;
+                        }
+                    }
+                    else {
+                        color = pixel;
+                    }
+
+                    renderPixel(column++, line, color);
                 }
             }
         }
 
 
         // Draw Window if enabled
-        if ((IORegisters.LCDC & 0x20) && IORegisters.WY >= IORegisters.LY) {
+        if ((IORegisters.LCDC & 0x20) && IORegisters.WY >= IORegisters.LY && IORegisters.WX <= 166) {
 
         }
-
     }
     else {
         // Draw "clear" pixels (white) when background is off
@@ -159,8 +177,109 @@ function drawLCDLine(line) {
     }
 
     // Draw sprites if enabled
+    // https://gbdev.io/pandocs/OAM.html
+    // https://gbdev.io/pandocs/OAM.html#object-priority-and-conflicts
     if (IORegisters.LCDC & 0x02) {
+        // There are up to 40 sprites in the OAM
 
+        const spritesToDraw = [];
+
+        for (let i = 0; i < 40; i++) {
+            const spriteY = Globals.OAM[i * 4];
+            const spriteX = Globals.OAM[i * 4 + 1];
+
+            // Hide Sprite conditions
+            if (spriteY === 0 ||
+                spriteY === 160 ||
+                spriteY > (line + 16) ||
+                spriteY + (IORegisters.LCDC & 0x04 ? 16 : 8) <= line ||
+                spriteX === 0 ||
+                spriteX >= 168
+            ) {
+                continue;
+            }
+
+            spritesToDraw.push(i);
+            if (spritesToDraw.length > 10) {
+                break;
+            }
+        }
+
+        // DMG sorts sprites by x position
+        if (!Globals.metadata.supportsColor) {
+            spritesToDraw.sort((a, b) => {
+                const aX = Globals.OAM[a * 4 + 1];
+                const bX = Globals.OAM[b * 4 + 1];
+                if (aX < bX) {
+                    return 1;
+                }
+                else if (aX > bX) {
+                    return -1;
+                }
+                return 0;
+            });
+        }
+
+        for (const spriteNum of spritesToDraw) {
+            const spriteY = Globals.OAM[spriteNum * 4];
+            const spriteX = Globals.OAM[spriteNum * 4 + 1];
+            let spriteIndex = Globals.OAM[spriteNum * 4 + 2];
+            const flags = Globals.OAM[spriteNum * 4 + 3];
+
+            let VRAM = Globals.VRAM0;
+            if (Globals.metadata.supportsColor && (flags & 0x08)) {
+                VRAM = Globals.VRAM1;
+            }
+
+            // https://gbdev.io/pandocs/OAM.html#byte-2--tile-index
+            if (IORegisters.LCDC & 0x04) { // 8x16 mode
+                spriteIndex &= 0xFE;
+            }
+
+            // Get row to draw and flip y if necessary
+            let spriteRow = line + 16 - spriteY;
+            if (flags & 0x40) {
+                spriteRow = ((IORegisters.LCDC & 0x04) ? 16 : 8) - spriteRow - 1;
+            }
+
+
+            const spriteBlockAddress = spriteIndex * 0x10;
+            const spriteDataAddress = spriteBlockAddress + spriteRow * 2;
+            const spriteData = extractPixelsFromBytes(VRAM[spriteDataAddress], VRAM[spriteDataAddress + 1]);
+
+            if (flags & 0x20) { // flip x if necessary
+                spriteData.reverse();
+            }
+
+            for (let i = 0; i < spriteData.length; i++) {
+                const pixel = spriteData[i];
+                if (pixel === 0) { // transparent 
+                    continue;
+                }
+                let color;
+                if (!Globals.metadata.supportsColor) {
+                    const palette = (flags & 0x10) ? IORegisters.OBP0 : IORegisters.OBP1;
+                    switch (pixel) {
+                        case 0x0:
+                            color = (palette & 0x03);
+                            break;
+                        case 0x1:
+                            color = (palette & 0x0C) >> 2;
+                            break;
+                        case 0x2:
+                            color = (palette & 0x30) >> 4;
+                            break;
+                        case 0x3:
+                            color = (palette & 0xC0) >> 6;
+                            break;
+                    }
+                }
+                else {
+                    color = pixel;
+                }
+                renderPixel(spriteX + i, line, color, !(flags & 0x80));
+            }
+        }
     }
 
 
@@ -312,6 +431,19 @@ function updateVRAMInspector() {
                 ctx1.fillRect(x, y, 1, 1);
             }
         }
+    }
+}
+
+function doDMATransfer() {
+    const cycleDelta = Globals.cycleNumber - IOValues.transferCycles;
+
+    if (cycleDelta >= 160 && Globals.HRAM[0x46] !== 0) { // Do DMA transfer
+        let source = (Globals.HRAM[0x46] << 8);
+
+        for (let destination = 0xFE00; destination <= 0xFE9F; destination++, source++) {
+            gameboyWrite(destination, gameboyRead(source));
+        }
+        Globals.HRAM[0x46] = 0x00;
     }
 }
 

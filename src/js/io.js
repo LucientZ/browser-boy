@@ -36,10 +36,7 @@ function writePixelToScreen(x, y, color, ctx) {
  */
 function writePixelToBuffer(x, y, color, priority = true) {
     const index = x + y * 160;
-    if (!priority &&
-        IOValues.videoBuffer[index] !== 0xFFFF &&
-        IOValues.videoBuffer[index] !== 0x7FFF &&
-        (IOValues.videoBuffer[index] & 0x8000)) {
+    if (!priority && (IOValues.videoBuffer[index] & 0x8000)) {
         return;
     }
     IOValues.videoBuffer[index] = (priority << 15) | color;
@@ -167,7 +164,8 @@ function drawLCDLine(line) {
                         color = pixel;
                     }
 
-                    renderPixel(column++, line, color);
+                    const priority = Globals.metadata.supportsColor ? false : pixel !== 0; // TODO Gameboy Color Implemenation
+                    renderPixel(column++, line, color, priority);
                 }
             }
         }

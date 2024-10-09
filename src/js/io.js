@@ -526,8 +526,8 @@ function doHDMATransfer() {
         for (let i = 0; i < 0x10; i++) {
             gameboyWrite(IOValues.HDMADestination++, gameboyRead(IOValues.HDMASource++));
         }
-        blocksLeft = (blocksLeft - 1) & 0x7F;
-        Globals.HRAM[0x55] = 0x80 | blocksLeft;
+        Globals.HRAM[0x55] = 0x80 | ((blocksLeft - 1) & 0x7F);
+        blocksTransferred = 1;
     }
 
     if (Globals.HRAM[0x55] = 0xFF) {

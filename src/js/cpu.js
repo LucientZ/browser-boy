@@ -1368,7 +1368,7 @@ function handleInterrupts() {
     const interruptsToHandle = Globals.IE & IORegisters.IF;
 
     // HALT bug simulation
-    if (!Globals.IME && interruptsToHandle) {
+    if (interruptsToHandle) {
         Globals.halted = false;
     }
 

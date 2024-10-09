@@ -483,3 +483,71 @@ function doTimerUpdate() {
         }
     }
 }
+
+/////////////////////// Joypad Stuff ///////////////////////
+
+const upKeys = ["ArrowUp", "w", "W"];
+const downKeys = ["ArrowDown", "s", "S"];
+const leftKeys = ["ArrowLeft", "a", "A"];
+const rightKeys = ["ArrowRight", "d", "D"];
+const aButtonKeys = ["z", "Z"];
+const bButtonKeys = ["x", "X"];
+const startKeys = ["1"];
+const selectKeys = ["2"];
+
+// https://gbdev.io/pandocs/Joypad_Input.html
+// For whatever reason, the gameboy has a button being pressed as 0 and released as 1
+document.addEventListener("keydown", (event) => {
+    if (upKeys.includes(event.key)) {
+        IOValues.upPressed = true;
+    }
+    else if (downKeys.includes(event.key)) {
+        IOValues.downPressed = true;
+    }
+    else if (leftKeys.includes(event.key)) {
+        IOValues.leftPressed = true;
+    }
+    else if (rightKeys.includes(event.key)) {
+        IOValues.rightPressed = true;
+    }
+    else if (aButtonKeys.includes(event.key)) {
+        IOValues.aButtonPressed = true;
+    }
+    else if (bButtonKeys.includes(event.key)) {
+        IOValues.bButtonPressed = true;
+    }
+    else if (startKeys.includes(event.key)) {
+        IOValues.startPressed = true;
+    }
+    else if (selectKeys.includes(event.key)) {
+        IOValues.selectPressed = true;
+    }
+});
+
+// https://gbdev.io/pandocs/Joypad_Input.html
+document.addEventListener("keyup", (event) => {
+    if (upKeys.includes(event.key)) {
+        IOValues.upPressed = false;
+    }
+    else if (downKeys.includes(event.key)) {
+        IOValues.downPressed = false;
+    }
+    else if (leftKeys.includes(event.key)) {
+        IOValues.leftPressed = false;
+    }
+    else if (rightKeys.includes(event.key)) {
+        IOValues.rightPressed = false;
+    }
+    else if (aButtonKeys.includes(event.key)) {
+        IOValues.aButtonPressed = false;
+    }
+    else if (bButtonKeys.includes(event.key)) {
+        IOValues.bButtonPressed = false;
+    }
+    else if (startKeys.includes(event.key)) {
+        IOValues.startPressed = false;
+    }
+    else if (selectKeys.includes(event.key)) {
+        IOValues.selectPressed = false;
+    }
+});

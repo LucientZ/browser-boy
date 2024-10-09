@@ -60,6 +60,14 @@ const IOValues = {
     timerCycles: 0x00,
     transferCycles: 0x00,
     nextPC: null, // NULL if there is no nextPC
+    upPressed: false,
+    downPressed: false,
+    leftPressed: false,
+    rightPressed: false,
+    aButtonPressed: false,
+    bButtonPressed: false,
+    startPressed: false,
+    selectPressed: false,
 }
 
 //// IO read/write ops ////
@@ -71,9 +79,23 @@ const IOValues = {
 function readIO(addr) {
     addr &= 0xFF;
 
+    let temp = 0x0F;
+
     switch (addr) {
         case 0x00: // Joypad
-            return IORegisters.joypad;
+            if ((!(IORegisters.joypad & 0x20) && IOValues.aButtonPressed) || (!(IORegisters.joypad & 0x10) && IOValues.rightPressed)) {
+                temp &= ~0x01;
+            }
+            if ((!(IORegisters.joypad & 0x20) && IOValues.bButtonPressed) || (!(IORegisters.joypad & 0x10) && IOValues.leftPressed)) {
+                temp &= ~0x02;
+            }
+            if ((!(IORegisters.joypad & 0x20) && IOValues.selectPressed) || (!(IORegisters.joypad & 0x10) && IOValues.upPressed)) {
+                temp &= ~0x04;
+            }
+            if ((!(IORegisters.joypad & 0x20) && IOValues.startPressed) || (!(IORegisters.joypad & 0x10) && IOValues.downPressed)) {
+                temp &= ~0x08;
+            }
+            return IORegisters.joypad | temp;
         case 0x01:
             return IORegisters.serialData;
         case 0x02:
@@ -140,7 +162,7 @@ function writeIO(addr, val) {
 
     switch (addr) {
         case 0x00: // Joypad
-            IORegisters.joypad = val;
+            IORegisters.joypad = val & 0xF0;
             return;
         case 0x01:
             IORegisters.serialData = val;

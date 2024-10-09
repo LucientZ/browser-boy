@@ -33,10 +33,11 @@ function writePixelToScreen(x, y, color, ctx) {
  * @param {number} y y-position on the LCD screen
  * @param {number} color Must be 5-bit encoded. Use bit unused 15 for priority
  * @param {boolean} priority Says whether a pixel will be drawn over other pixels
+ * @param {boolean} hasTransparency Says whether a pixel has transparency
  */
-function writePixelToBuffer(x, y, color, priority = true) {
+function writePixelToBuffer(x, y, color, priority = true, hasTransparency = true) {
     const index = x + y * 160;
-    if (!priority && (IOValues.videoBuffer[index] & 0x8000)) {
+    if (!priority && (IOValues.videoBuffer[index] & 0x8000) && hasTransparency) {
         return;
     }
     IOValues.videoBuffer[index] = (priority << 15) | color;
@@ -49,13 +50,14 @@ function writePixelToBuffer(x, y, color, priority = true) {
  * @param {number} y y-position on the LCD screen
  * @param {number} color Must be in the set {00, 01, 10, 11}
  * @param {boolean} priority Says whether a pixel will be drawn over the background
+ * @param {boolean} hasTransparency Says whether a pixel has transparency
  */
-function renderPixel(x, y, value, priority = true, palette = IOValues.defaultColorPalette) {
+function renderPixel(x, y, value, priority = true, hasTransparency = true, palette = IOValues.defaultColorPalette) {
     if (!Globals.metadata.supportsColor) {
-        writePixelToBuffer(x, y, IOValues.defaultColorPalette[value], priority);
+        writePixelToBuffer(x, y, IOValues.defaultColorPalette[value], priority, hasTransparency);
     }
     else {
-        writePixelToBuffer(x, y, palette[value], priority); // TODO Support Color Actually
+        writePixelToBuffer(x, y, palette[value], priority, hasTransparency); // TODO Support Color Actually
     }
 }
 
@@ -218,7 +220,7 @@ function drawLCDLine(line) {
                     }
 
                     const priority = Globals.metadata.supportsColor ? false : pixel !== 0; // TODO Gameboy Color Implementation
-                    renderPixel(IORegisters.WX + i * 8 + j, line, color, priority);
+                    renderPixel(IORegisters.WX + i * 8 + j, line, color, priority, false);
                 }
 
             }

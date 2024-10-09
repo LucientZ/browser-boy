@@ -9,6 +9,18 @@ const MBCRegisters = {
     bankingModeSelect: 0x00,
     RTC: 0x00,
     builtInRAM: null, // Initializes on start if this is an MBC2 cartridge
+    latchClockData: 0x00,
+}
+
+/**
+ * Registers for a real time clock if it exists
+ */
+const RTCRegisters = {
+    seconds: 0x00,
+    minutes: 0x00,
+    hours: 0x00,
+    DL: 0x00, // Lower 8 bits of day counter
+    DH: 0x00, // Upper 1 bit of day counter
 }
 
 /**
@@ -479,7 +491,7 @@ function readMBC3(addr) {
     }
     else if (addr >= 0xA000 && addr <= 0xBFFF) {
         // MBC 3 will read/write to the real time clock if selecting a ram bank higher than 7
-        if (MBCRegisters.RAMBankNumber < 0x07) {
+        if (MBCRegisters.RAMBankNumber <= 0x07) {
             // Treats bank 0 as bank 1
             if (MBCRegisters.ROMBankNumber == 0) {
                 return Globals.cartridgeRAM[(addr - 0xA000) + 8 * BYTE_VALUES.KiB];
@@ -489,7 +501,13 @@ function readMBC3(addr) {
             }
         }
         else {
-            return MBCRegisters.RTC;
+            switch (MBCRegisters.RAMBankNumber) {
+                case 0x08: return RTCRegisters.seconds;
+                case 0x09: return RTCRegisters.minutes;
+                case 0x0A: return RTCRegisters.hours;
+                case 0x0B: return RTCRegisters.DL;
+                case 0x0C: return RTCRegisters.DH;
+            }
         }
     }
 
@@ -511,7 +529,16 @@ function writeMBC3(addr, val) {
     }
     else if (addr <= 0x7FFF) {
         // Latch Clock Data
-        // Unused in the emulator, but useful for reading time in an actual ROM
+        const currentTime = Date.now();
+        if (MBCRegisters.latchClockData === 0x00 && val === 0x01) {
+            RTCRegisters.seconds = Math.floor(currentTime / 1000) % 60;
+            RTCRegisters.minutes = Math.floor(currentTime / 60_000) % 60;
+            RTCRegisters.hours = Math.floor(currentTime / 3_600_000) % 60;
+            const totalDays = Math.floor(currentTime / 86_400_000);
+            RTCRegisters.DL = totalDays & 0xFF;
+            RTCRegisters.DH = ((totalDays & 0x100) >> 8) | ((totalDays > 0x1FF) << 7) | (RTCRegisters.DH & 0x80);
+        }
+        MBCRegisters.latchClockData = val;
         return;
     }
     else if (addr <= 0x9FFF) {
@@ -520,7 +547,7 @@ function writeMBC3(addr, val) {
     }
     else if (addr <= 0xBFFF) {
         // MBC 3 will read/write to the real time clock if selecting a ram bank higher than 7
-        if (MBCRegisters.RAMBankNumber < 0x07) {
+        if (MBCRegisters.RAMBankNumber <= 0x07) {
             // Treats bank 0 as bank 1
             if (MBCRegisters.ROMBankNumber == 0) {
                 Globals.cartridgeRAM[(addr - 0xA000) + 8 * BYTE_VALUES.KiB] = val;
@@ -532,7 +559,13 @@ function writeMBC3(addr, val) {
             }
         }
         else {
-            MBCRegisters.RTC = val;
+            switch (MBCRegisters.RAMBankNumber) {
+                case 0x08: RTCRegisters.seconds = val; break;
+                case 0x09: RTCRegisters.minutes = val; break;
+                case 0x0A: RTCRegisters.hours = val; break;
+                case 0x0B: RTCRegisters.DL = val; break;
+                case 0x0C: RTCRegisters.DH = val; break;
+            }
             return;
         }
     }

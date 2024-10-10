@@ -263,7 +263,7 @@ function doProgramIteration() {
     doLCDUpdate();
     doTimerUpdate();
     handleInterrupts();
-    if (Globals.ROM && !Globals.halted && !Globals.standby) {
+    if (!Globals.standby) {
         doNext8BitInstruction();
     }
     else {

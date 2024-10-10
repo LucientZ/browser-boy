@@ -812,7 +812,14 @@ const opcodeTable8Bit = {
     // GAP of Load Instructions 0x40-0x75
     0x76: () => {
         // HALT
+
+        if (IORegisters.IF) {
+            Globals.halted = false;
+            return;
+        }
+        
         Globals.halted = true;
+        Registers.PC--;
         Globals.cycleNumber++;
     },
     // GAP of Load Instructions 0x77-0x7F
@@ -965,7 +972,7 @@ const opcodeTable8Bit = {
     },
     0xD9: () => {
         // RETI
-        Globals.IME = 1;
+        Globals.IMERequested = 1;
         doReturn();
     },
     0xDA: () => {
@@ -1079,7 +1086,7 @@ const opcodeTable8Bit = {
     0xF3: () => {
         // DI
         // Disable Interrupts
-        Globals.IME = 0;
+        Globals.IMERequested = 0;
         Globals.cycleNumber++;
     },
     0xF5: () => {
@@ -1120,7 +1127,7 @@ const opcodeTable8Bit = {
     0xFB: () => {
         // EI
         // Enable Interrupts
-        Globals.IME = 1;
+        Globals.IMERequested = 1;
         Globals.cycleNumber++;
     },
     0xFE: () => {
@@ -1367,12 +1374,12 @@ function doNext8BitInstruction() {
 function handleInterrupts() {
     const interruptsToHandle = Globals.IE & IORegisters.IF;
 
-    // HALT bug simulation
-    if (interruptsToHandle) {
-        Globals.halted = false;
-    }
-
     if (Globals.IME && interruptsToHandle) {
+        if (Globals.halted) {
+            Registers.PC++;
+            Globals.halted = false;
+        }
+
         doPush(Registers.PC);
 
         // Moves program counter to various interrupt handlers
@@ -1397,6 +1404,8 @@ function handleInterrupts() {
             IORegisters.IF &= ~0x10;
         }
         Globals.IME = 0;
+        Globals.IMERequested = 0;
         Globals.cycleNumber += 5;
     }
+    Globals.IME = Globals.IMERequested;
 }

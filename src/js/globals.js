@@ -56,6 +56,7 @@ const ROMHeaderAddresses = Object.freeze({
  * @prop {boolean}           doubleSpeed        Says whether or not the gameboy is 
  * @prop {number}            IME                Interrupt Master Enable flag. 1 if interrupts are enabled
  * @prop {number}            IE                 Interrupt Enable flag. Says what interrupts are allowed to be called
+ * @prop {number}            IMERequested       Says whether the IME was requested. This is used to simulate the fact that interrupts are delayed by one instruction
  * @prop {string}            serialOutput       Characters outputted to serial port
  * @prop {Array<number>}     breakpoints        Addresses in which the program should stop (Freezes the program)
  * @prop {Array<string>}     callStack          Addresses the given ROM has called (Not acccurate if the stack moves)
@@ -92,6 +93,7 @@ const Globals = {
     frozen: true,
     IME: 0,
     IE: 0x01,
+    IMERequested: false,
     serialOutput: "",
     breakpoints: [],
     callStack: [],

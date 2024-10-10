@@ -554,7 +554,7 @@ function readMBC3(addr) {
                 return Globals.cartridgeRAM[(addr - 0xA000) + 8 * BYTE_VALUES.KiB];
             }
             else {
-                return Globals.cartridgeRAM[(addr - 0xA000) + MBCRegisters.ROMBankNumber * 8 * BYTE_VALUES.KiB];
+                return Globals.cartridgeRAM[(addr - 0xA000) + MBCRegisters.RAMBankNumber * 8 * BYTE_VALUES.KiB];
             }
         }
         else {
@@ -611,7 +611,7 @@ function writeMBC3(addr, val) {
                 return;
             }
             else {
-                Globals.cartridgeRAM[(addr - 0xA000) + MBCRegisters.ROMBankNumber * 8 * BYTE_VALUES.KiB] = val;
+                Globals.cartridgeRAM[(addr - 0xA000) + MBCRegisters.RAMBankNumber * 8 * BYTE_VALUES.KiB] = val;
                 return;
             }
         }

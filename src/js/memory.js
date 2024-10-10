@@ -276,19 +276,14 @@ function generalRead(addr) {
             return Globals.VRAM1[addr - 0x8000];
         }
     }
-    else if (addr >= 0xC000 && addr <= 0xCFFF) {
+    else if (addr >= 0xC000 && addr <= 0xCFFF || addr >= 0xE000 && addr <= 0xEFFF) {
         return Globals.RAM[addr - 0xC000];
     }
-    else if (addr >= 0xD000 && addr <= 0xDFFF) {
+    else if (addr >= 0xD000 && addr <= 0xDFFF || addr >= 0xF000 && addr <= 0xFDFF) {
+        if (MBCRegisters === 0) {
+            return Globals.RAM[(addr - 0xD000) + 4 * BYTE_VALUES.KiB];
+        }
         return Globals.RAM[(addr - 0xD000) + MBCRegisters.WRAMBankNumber * 4 * BYTE_VALUES.KiB];
-    }
-    else if (addr >= 0xE000 && addr <= 0xEFFF) {
-        // Echo RAM
-        return Globals.RAM[addr - 0xE000];
-    }
-    else if (addr >= 0xF000 && addr <= 0xFDFF) {
-        // Echo RAM
-        return Globals.RAM[(addr - 0xF000) + MBCRegisters.WRAMBankNumber * 4 * BYTE_VALUES.KiB];
     }
     else if (addr >= 0xFE00 && addr <= 0xFE9F) {
         return Globals.OAM[addr - 0xFE00];
@@ -317,22 +312,16 @@ function generalWrite(addr, val) {
             return;
         }
     }
-    else if (addr >= 0xC000 && addr <= 0xCFFF) {
+    else if (addr >= 0xC000 && addr <= 0xCFFF || addr >= 0xE000 && addr <= 0xEFFF) {
         Globals.RAM[addr - 0xC000] = val;
         return;
     }
-    else if (addr >= 0xD000 && addr <= 0xDFFF) {
+    else if (addr >= 0xD000 && addr <= 0xDFFF || addr >= 0xF000 && addr <= 0xFDFF) {
+        if (MBCRegisters === 0) {
+            Globals.RAM[(addr - 0xD000) + 4 * BYTE_VALUES.KiB] = val;
+            return;
+        }
         Globals.RAM[(addr - 0xD000) + MBCRegisters.WRAMBankNumber * 4 * BYTE_VALUES.KiB] = val;
-        return;
-    }
-    else if (addr >= 0xE000 && addr <= 0xEFFF) {
-        // Echo RAM
-        Globals.RAM[addr - 0xE000] = val;
-        return;
-    }
-    else if (addr >= 0xF000 && addr <= 0xFDFF) {
-        // Echo RAM
-        Globals.RAM[(addr - 0xF000) + MBCRegisters.WRAMBankNumber * 4 * BYTE_VALUES.KiB] = val;
         return;
     }
     else if (addr >= 0xFE00 && addr <= 0xFE9F) {

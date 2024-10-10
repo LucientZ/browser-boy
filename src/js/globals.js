@@ -59,6 +59,7 @@ const ROMHeaderAddresses = Object.freeze({
  * @prop {string}            serialOutput       Characters outputted to serial port
  * @prop {Array<number>}     breakpoints        Addresses in which the program should stop (Freezes the program)
  * @prop {Array<string>}     callStack          Addresses the given ROM has called (Not acccurate if the stack moves)
+ * @prop {number}            iterationsPerTick  States the amount of times doProgramIteration() is called per tick
  * 
  */
 
@@ -94,4 +95,5 @@ const Globals = {
     serialOutput: "",
     breakpoints: [],
     callStack: [],
+    iterationsPerTick: 20000,
 }

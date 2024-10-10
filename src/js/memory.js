@@ -1,5 +1,7 @@
 /**
  * Registers in the MBC chip
+ * @prop {number}        RAMEnable     If truthy, the *cartridge* ram is enabled. Else, it is disabled (Should return 0xFF and ignore writes)
+ * @prop {number}        ROMBankNumber Says which ROM bank is selected that the 
  */
 const MBCRegisters = {
     RAMEnable: 0x00,

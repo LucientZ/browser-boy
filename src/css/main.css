@@ -14,7 +14,15 @@ body {
     justify-content: center;
 }
 
-.evenly-spaced-row>div {
+.evenly-spaced-row>* {
+    flex: 1;
+}
+
+.control-button {
+    margin: 0rem 0.5rem 0rem 0.5rem;
+}
+
+.speed-slider {
     flex: 1;
 }
 

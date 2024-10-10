@@ -257,6 +257,9 @@ function parseROM(rom) {
 }
 
 function doProgramIteration() {
+    if (Globals.frozen) {
+        return;
+    }
     doLCDUpdate();
     doTimerUpdate();
     handleInterrupts();
@@ -279,10 +282,8 @@ function doProgramIteration() {
 
 setInterval(() => {
     if (Globals.ROM) {
-        for (let i = 0; i < 30000; i++) {
-            if (!Globals.frozen) {
-                doProgramIteration();
-            }
+        for (let i = 0; i < Globals.iterationsPerTick; i++) {
+            doProgramIteration();
         }
     }
 });
@@ -300,4 +301,10 @@ window.onload = () => {
     screenContext.canvas.width = 2 * screen.width;
     screenContext.canvas.height = 2 * screen.height;
     screenContext.scale(2, 2);
+
+    const speedSlider = document.getElementById("runtime-speed-slider");
+    speedSlider.value = Globals.iterationsPerTick;
+    speedSlider.oninput = () => {
+        Globals.iterationsPerTick = speedSlider.value;
+    }
 }

@@ -512,11 +512,10 @@ function doDMATransfer() {
  * Technically, this shouldn't be instant, but I made it this way because I am lazy.
 */
 function doHDMATransfer() {
-    const blocksLeft = (Globals.HRAM[0x55] & 0x7F);
-
+    const blocksLeft = (Globals.HRAM[0x55] & 0x7F) + 1;
     let blocksTransferred = 0;
     if (!(Globals.HRAM[0x55] & 0x80)) { // Transfer all data at once
-        for (let i = 0; i < blocksLeft * 0x10; i++) {
+        for (let i = 0; i < (blocksLeft * 0x10); i++) {
             gameboyWrite(IOValues.HDMADestination++, gameboyRead(IOValues.HDMASource++));
         }
         Globals.HRAM[0x55] = 0xFF;
@@ -526,16 +525,16 @@ function doHDMATransfer() {
         for (let i = 0; i < 0x10; i++) {
             gameboyWrite(IOValues.HDMADestination++, gameboyRead(IOValues.HDMASource++));
         }
-        Globals.HRAM[0x55] = 0x80 | ((blocksLeft - 1) & 0x7F);
+        Globals.HRAM[0x55] = 0x80 | (((Globals.HRAM[0x55] & 0x7F) - 1) & 0x7F);
         blocksTransferred = 1;
     }
-
-    if (Globals.HRAM[0x55] = 0xFF) {
+    console.log(Globals.HRAM[0x55].toString(16));
+    if (Globals.HRAM[0x55] === 0xFF) {
         IOValues.HDMATransferRequested = false;
     }
 
     Globals.halted = false;
-    Globals.cycleNumber += (blocksTransferred >> 1) * (Globals.doubleSpeed ? 16 : 8);
+    Globals.cycleNumber += (blocksTransferred) * (Globals.doubleSpeed ? 16 : 8);
 }
 
 /////////////////////// Timer Stuff ///////////////////////

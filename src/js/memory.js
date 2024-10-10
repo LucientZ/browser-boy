@@ -138,7 +138,7 @@ function readIO(addr) {
         case 0x4B:
             return IORegisters.WX;
         case 0x4F:
-            return IORegisters.VRAMBankNumber;
+            return IORegisters.VRAMBankNumber & 0x01;
         case 0x50:
             return IORegisters.bootROMDisabled;
         case 0x70:
@@ -233,10 +233,18 @@ function writeIO(addr, val) {
             IORegisters.bootROMDisabled = val;
             return;
         case 0x55:
-            IOValues.HDMATransferRequested = true;
-            IOValues.HDMATransferCycles = Globals.cycleNumber;
-            IOValues.HDMASource = ((Globals.HRAM[0x51] << 8) | (Globals.HRAM[0x52])) & 0xFFF0;
-            IOValues.HDMADestination = (((Globals.HRAM[0x53] << 8) | (Globals.HRAM[0x54])) & 0x1FF0) | 0x8000
+            if (Globals.metadata.supportsColor) {
+                if (!(val & 0x80) && IOValues.HDMATransferRequested) { // Cancel HBLANK transfer
+                    IOValues.HDMATransferRequested = false;
+                    Globals.HRAM[0x55] = 0x80 | (Globals.HRAM[0x55] & 0x7F);
+                    return;
+                }
+                else {
+                    IOValues.HDMATransferRequested = true;
+                    IOValues.HDMASource = ((Globals.HRAM[0x51] << 8) | (Globals.HRAM[0x52])) & 0xFFF0;
+                    IOValues.HDMADestination = (((Globals.HRAM[0x53] << 8) | (Globals.HRAM[0x54])) & 0x1FF0) | 0x8000
+                }
+            }
             break;
         case 0x70:
             MBCRegisters.WRAMBankNumber = val;

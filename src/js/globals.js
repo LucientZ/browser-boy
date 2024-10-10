@@ -57,6 +57,8 @@ const ROMHeaderAddresses = Object.freeze({
  * @prop {number}            IME                Interrupt Master Enable flag. 1 if interrupts are enabled
  * @prop {number}            IE                 Interrupt Enable flag. Says what interrupts are allowed to be called
  * @prop {string}            serialOutput       Characters outputted to serial port
+ * @prop {Array<number>}     breakpoints        Addresses in which the program should stop (Freezes the program)
+ * @prop {Array<string>}     callStack          Addresses the given ROM has called (Not acccurate if the stack moves)
  * 
  */
 
@@ -90,4 +92,6 @@ const Globals = {
     IME: 0,
     IE: 0x01,
     serialOutput: "",
+    breakpoints: [],
+    callStack: [],
 }

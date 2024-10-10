@@ -180,10 +180,9 @@ function doSignedRelativeJump() {
     Globals.cycleNumber += 3;
 }
 
-const callStack = [];
 
 function updateStackInspector() {
-    const output = callStack.join("\n");
+    const output = Globals.callStack.join("\n");
     document.getElementById("call-stack").innerText = output;
 }
 
@@ -227,7 +226,7 @@ function doCall(address = undefined) {
 
     gameboyWrite(--Registers.SP, Registers.PC >> 8);
     gameboyWrite(--Registers.SP, Registers.PC & 0xFF);
-    callStack.push(`0x${Registers.SP.toString(16)}`);
+    Globals.callStack.push(`0x${Registers.SP.toString(16)}`);
     Registers.PC = address;
     Globals.cycleNumber += 3;
 }
@@ -236,7 +235,7 @@ function doCall(address = undefined) {
  * Pops the last value on the stack into PC
 */
 function doReturn() {
-    callStack.pop();
+    Globals.callStack.pop();
     Registers.PC = gameboyRead(Registers.SP) | (gameboyRead(Registers.SP + 1) << 8);
     Registers.SP += 2;
     Globals.cycleNumber += 3;
@@ -1321,7 +1320,7 @@ function doNext16BitInstruction() {
     Globals.cycleNumber += 2;
 }
 
-let breakpoints = [];
+
 
 function doNext8BitInstruction() {
     const instruction = gameboyRead(Registers.PC++);
@@ -1350,7 +1349,8 @@ function doNext8BitInstruction() {
     Registers.Fz = Registers.Fz ? 1 : 0;
     Registers.Fh = Registers.Fh ? 1 : 0;
     Registers.Fn = Registers.Fn ? 1 : 0;
-    if (breakpoints.includes(Registers.PC)) {
+
+    if (Globals.breakpoints.includes(Registers.PC)) {
         Globals.frozen = true;
         console.log(`Breakpoint at 0x${Registers.PC.toString(16)}`);
     }

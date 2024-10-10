@@ -277,7 +277,7 @@ function writeIO(addr, val) {
             }
             return;
         case 0x70:
-            MBCRegisters.WRAMBankNumber = val;
+            MBCRegisters.WRAMBankNumber = val & 0x07;
             return;
         case 0xFF:
             Globals.IE = val;
@@ -516,12 +516,17 @@ function readMBC2(addr) {
 
 function writeMBC2(addr, val) {
     if (addr <= 0x3FFF) {
-        if (addr & 0x80) {
-            MBCRegisters.ROMBankNumber = val;
+        if (addr & 0x100) {
+            MBCRegisters.ROMBankNumber = (val & 0x0F) || 1;
             return;
         }
         else {
-            MBCRegisters.RAMEnable = val;
+            if (val === 0x0A) {
+                MBCRegisters.RAMEnable = 1;
+            }
+            else {
+                MBCRegisters.RAMEnable = 0;
+            }
             return;
         }
     }

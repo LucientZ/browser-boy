@@ -68,11 +68,6 @@ function flushVideoBuffer() {
         const x = i % 160;
         const y = Math.floor(i / 160);
         writePixelToScreen(x, y, color);
-
-        // Removes priority to already rendered pixels
-        if (y !== IORegisters.LY) {
-            IOValues.videoBuffer[i] &= 0x7fff;
-        }
     }
 }
 
@@ -199,7 +194,7 @@ function drawLCDLine(line) {
 
 
         // Draw Window if enabled and we're in the window drawing area
-        if ((IORegisters.LCDC & 0x20) && IORegisters.WY <= line && IORegisters.WX <= 166 && IORegisters.WY <= 143) {
+        if ((IORegisters.LCDC & 0x20) && IORegisters.WY <= line && IORegisters.WX <= 166 && IORegisters.WY <= 144) {
             const windowTileMapSelected = (IORegisters.LCDC & 0x40 >> 6);
             const tileY = (Math.floor((line - IORegisters.WY) / 8)) % 32;
             let tileX;
@@ -566,6 +561,7 @@ function doDMATransfer() {
 function doHDMATransfer() {
     const blocksLeft = (Globals.HRAM[0x55] & 0x7F) + 1;
     let blocksTransferred = 0;
+
     if (!(Globals.HRAM[0x55] & 0x80)) { // Transfer all data at once
         for (let i = 0; i < (blocksLeft * 0x10); i++) {
             gameboyWrite(IOValues.HDMADestination++, gameboyRead(IOValues.HDMASource++));

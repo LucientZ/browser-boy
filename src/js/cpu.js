@@ -455,10 +455,10 @@ const opcodeTable8Bit = {
     0x10: () => {
         // STOP
         // https://gbdev.io/pandocs/Reducing_Power_Consumption.html?highlight=STOP#using-the-stop-instruction
-        if (Globals.HRAM[0x4D]) {
+        if (Globals.HRAM[0x4D] & 0x01) {
             // Globals.standby = true; // IDK what to do with this 'cause it's weirdly non-deterministic
             Globals.doubleSpeed = !Globals.doubleSpeed; // Because Licensed ROMS only use this for toggling doubleSpeed, this is what this does
-            Globals.HRAM[0x4D] = 0;
+            Globals.HRAM[0x4D] ^= 0x81;
         }
         Globals.cycleNumber += 1;
     },
@@ -817,7 +817,7 @@ const opcodeTable8Bit = {
             Globals.halted = false;
             return;
         }
-        
+
         Globals.halted = true;
         Registers.PC--;
         Globals.cycleNumber++;

@@ -43,7 +43,9 @@ const IORegisters = {
     SCX: 0x00, // Background viewport X
     WY: 0x00, // Window Y position
     WX: 0x00, // Window X position
-    backgroundPalette: 0x00,
+    backgroundPalette: 0x00, // Used for DMG
+    backgroundPaletteIndex: 0x00, // Used for GBC
+    spritePaletteIndex: 0x00, // Used for GBC
     OBP0: 0x00, // OBJ palette 0
     OBP1: 0x00, // OBJ palette 0
     VRAMBankNumber: 0x00,
@@ -141,6 +143,14 @@ function readIO(addr) {
             return IORegisters.VRAMBankNumber & 0x01;
         case 0x50:
             return IORegisters.bootROMDisabled;
+        case 0x68:
+            return IORegisters.backgroundPaletteIndex;
+        case 0x69:
+            return Globals.BGCRAM[IORegisters.backgroundPaletteIndex & 0x3f];
+        case 0x6A:
+            return IORegisters.spritePaletteIndex;
+        case 0x6B:
+            return Globals.OBJCRAM[IORegisters.spritePaletteIndex & 0x3f];
         case 0x70:
             return MBCRegisters.WRAMBankNumber;
         case 0xFF:
@@ -246,6 +256,24 @@ function writeIO(addr, val) {
                 }
             }
             break;
+        case 0x68:
+            IORegisters.backgroundPaletteIndex = val;
+            return;
+        case 0x69:
+            Globals.BGCRAM[IORegisters.backgroundPaletteIndex & 0x3f] = val;
+            if (IORegisters.backgroundPaletteIndex & 0x80) {
+                IORegisters.backgroundPaletteIndex = 0x80 | ((IORegisters.backgroundPaletteIndex + 1) & 0x3f);
+            }
+            return;
+        case 0x6A:
+            IORegisters.spritePaletteIndex = val;
+            return;
+        case 0x6B:
+            Globals.OBJCRAM[IORegisters.spritePaletteIndex & 0x3f] = val;
+            if (IORegisters.spritePaletteIndex & 0x80) {
+                IORegisters.spritePaletteIndex = 0x80 | ((IORegisters.spritePaletteIndex + 1) & 0x3f);
+            }
+            return;
         case 0x70:
             MBCRegisters.WRAMBankNumber = val;
             return;

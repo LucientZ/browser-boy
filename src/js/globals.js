@@ -46,6 +46,8 @@ const ROMHeaderAddresses = Object.freeze({
  * @prop {Uint8Array}        HRAM               Small memory space used for certain flags
  * @prop {Uint8Array}        VRAM0              32 KiB of VRAM
  * @prop {Uint8Array}        VRAM1              32 KiB of VRAM (For Gameboy Color)
+ * @prop {Uint8Array}        BGCRAM             Color RAM for backgrounds (For Gameboy Color)
+ * @prop {Uint8Array}        OBJCRAM            Color RAM for objects aka sprites (For Gameboy Color)
  * @prop {Uint8Array | null} cartridgeRAM       RAM on the cartridge itself. Size is specified in the ROM header
  * @prop {number}            cycleNumber        How many cycles the gameboy has gone through.
  * @prop {boolean}           halted             Halt is called. Low power mode where the CPU stops until an interrupt
@@ -78,6 +80,8 @@ const Globals = {
     OAM: new Uint8Array(256),
     VRAM0: new Uint8Array(8 * BYTE_VALUES.KiB),
     VRAM1: new Uint8Array(8 * BYTE_VALUES.KiB),
+    OBJCRAM: new Uint8Array(64),
+    BGCRAM: new Uint8Array(64),
     cartridgeRAM: null,
     cycleNumber: 0,
     halted: false,

@@ -51,6 +51,7 @@ function writePixelToBuffer(x, y, color, priority = true, bypassPriority = false
  * @param {number} color Must be in the set {00, 01, 10, 11}
  * @param {boolean} priority Says whether a pixel will be drawn over the background
  * @param {boolean} bypassPriority Says whether a pixel will replace the previous pixel no matter the priority
+ * @param {Array<number>} palette Color palette this pixel will pull from. Must be at least of length 4. 
  */
 function renderPixel(x, y, value, priority = true, bypassPriority = false, palette = IOValues.defaultColorPalette) {
     if (!Globals.metadata.supportsColor) {
@@ -154,6 +155,16 @@ function drawLCDLine(line) {
                     tileData.reverse();
                 }
 
+                let palette = IOValues.defaultColorPalette;
+                if (Globals.metadata.supportsColor) {
+                    palette = [];
+                    const paletteIndex = (tileAttributes & 0x07) * 8;
+
+                    for (let j = 0; j < 4; j++) {
+                        palette.push(Globals.BGCRAM[paletteIndex + 2 * j] | (Globals.BGCRAM[paletteIndex + 2 * j + 1] << 8));
+                    }
+                }
+
                 const startTileColumn = (i === 0) ? (left % 8) : 0;
                 const endTileColumn = (i === 21) ? (right % 8) : 7;
                 for (let j = startTileColumn; j <= endTileColumn; j++) {
@@ -182,7 +193,7 @@ function drawLCDLine(line) {
                     }
 
                     const priority = Globals.metadata.supportsColor ? (tileAttributes & 0x80) != 0 : pixel !== 0; // TODO Gameboy Color Implementation
-                    renderPixel(column++, line, color, priority, true);
+                    renderPixel(column++, line, color, priority, true, palette);
                 }
             }
         }
@@ -212,7 +223,6 @@ function drawLCDLine(line) {
 
                 let tileData;
                 if (tileAttributes & 0x08) { // Is it in bank 1?
-                    console.log("Hi")
                     tileData = extractPixelsFromBytes(Globals.VRAM1[tileDataAddress - 0x8000], Globals.VRAM1[(tileDataAddress + 1) - 0x8000]);
                 }
                 else {
@@ -221,6 +231,16 @@ function drawLCDLine(line) {
 
                 if (tileAttributes & 0x20) { // x-flip
                     tileData.reverse();
+                }
+
+                let palette = IOValues.defaultColorPalette;
+                if (Globals.metadata.supportsColor) {
+                    palette = [];
+                    const paletteIndex = (tileAttributes & 0x07) * 8;
+
+                    for (let j = 0; j < 4; j++) {
+                        palette.push(Globals.BGCRAM[paletteIndex + 2 * j] | (Globals.BGCRAM[paletteIndex + 2 * j + 1] << 8));
+                    }
                 }
 
                 for (let j = 0; j < tileData.length; j++) {
@@ -249,7 +269,7 @@ function drawLCDLine(line) {
                     }
 
                     const priority = Globals.metadata.supportsColor ? tileAttributes & 0x80 : true; // TODO Gameboy Color Implementation
-                    renderPixel((IORegisters.WX - 7) + i * 8 + j, line, color, priority);
+                    renderPixel((IORegisters.WX - 7) + i * 8 + j, line, color, priority, palette);
                 }
 
             }
@@ -553,7 +573,6 @@ function doHDMATransfer() {
         Globals.HRAM[0x55] = 0x80 | (((Globals.HRAM[0x55] & 0x7F) - 1) & 0x7F);
         blocksTransferred = 1;
     }
-    console.log(Globals.HRAM[0x55].toString(16));
     if (Globals.HRAM[0x55] === 0xFF) {
         IOValues.HDMATransferRequested = false;
     }

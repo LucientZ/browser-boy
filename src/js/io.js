@@ -587,7 +587,7 @@ function doHDMATransfer() {
 /////////////////////// Timer Stuff ///////////////////////
 
 function doTimerUpdate() {
-    const cycleDelta = Globals.cycleNumber - IOValues.timerCycles;
+    let cycleDelta = Globals.cycleNumber - IOValues.timerCycles;
     IORegisters.divider = Globals.cycleNumber & 0xFF;
 
     // Return if timer isn't enabled
@@ -615,7 +615,7 @@ function doTimerUpdate() {
         IORegisters.timerCounter += Math.floor(cycleDelta / timerIncrementPeriod);
         IOValues.timerCycles = Globals.cycleNumber;
         if (IORegisters.timerCounter > 0xFF) {
-            IORegisters.timerCounter = IORegisters.timerModulo + (IORegisters >> 8);
+            IORegisters.timerCounter = IORegisters.timerModulo + (IORegisters.timerCounter >> 8);
             IORegisters.IF |= 0x4;
         }
     }

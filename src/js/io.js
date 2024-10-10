@@ -359,7 +359,6 @@ function drawLCDLine(line) {
             if (Globals.metadata.supportsColor) {
                 palette = [];
                 const paletteIndex = (flags & 0x07) * 8;
-                console.log(paletteIndex);
                 for (let j = 0; j < 4; j++) {
                     palette.push(Globals.OBJCRAM[paletteIndex + 2 * j] | (Globals.OBJCRAM[paletteIndex + 2 * j + 1] << 8));
                 }

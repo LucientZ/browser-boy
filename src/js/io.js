@@ -357,6 +357,15 @@ function drawLCDLine(line) {
                 spriteData.reverse();
             }
 
+            let palette = IOValues.defaultColorPalette;
+            if (Globals.metadata.supportsColor) {
+                palette = [];
+                const paletteIndex = flags & 0x07;
+                for (let j = 0; j < 4; j++) {
+                    palette.push(Globals.OBJCRAM[paletteIndex + 2 * j] | (Globals.OBJCRAM[paletteIndex + 2 * j + 1] << 8));
+                }
+            }
+
             for (let i = 0; i < spriteData.length; i++) {
                 const pixel = spriteData[i];
                 if (pixel === 0) { // transparent 
@@ -383,7 +392,7 @@ function drawLCDLine(line) {
                 else {
                     color = pixel;
                 }
-                renderPixel((spriteX - 8) + i, line, color, !(flags & 0x80));
+                renderPixel((spriteX - 8) + i, line, color, !(flags & 0x80), false, palette);
             }
         }
     }

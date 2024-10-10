@@ -159,7 +159,6 @@ function drawLCDLine(line) {
                 if (Globals.metadata.supportsColor) {
                     palette = [];
                     const paletteIndex = (tileAttributes & 0x07) * 8;
-
                     for (let j = 0; j < 4; j++) {
                         palette.push(Globals.BGCRAM[paletteIndex + 2 * j] | (Globals.BGCRAM[paletteIndex + 2 * j + 1] << 8));
                     }
@@ -237,7 +236,6 @@ function drawLCDLine(line) {
                 if (Globals.metadata.supportsColor) {
                     palette = [];
                     const paletteIndex = (tileAttributes & 0x07) * 8;
-
                     for (let j = 0; j < 4; j++) {
                         palette.push(Globals.BGCRAM[paletteIndex + 2 * j] | (Globals.BGCRAM[paletteIndex + 2 * j + 1] << 8));
                     }
@@ -360,7 +358,8 @@ function drawLCDLine(line) {
             let palette = IOValues.defaultColorPalette;
             if (Globals.metadata.supportsColor) {
                 palette = [];
-                const paletteIndex = flags & 0x07;
+                const paletteIndex = (flags & 0x07) * 8;
+                console.log(paletteIndex);
                 for (let j = 0; j < 4; j++) {
                     palette.push(Globals.OBJCRAM[paletteIndex + 2 * j] | (Globals.OBJCRAM[paletteIndex + 2 * j + 1] << 8));
                 }

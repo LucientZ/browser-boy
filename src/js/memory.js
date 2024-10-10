@@ -548,14 +548,13 @@ function readMBC3(addr) {
     }
     else if (addr >= 0xA000 && addr <= 0xBFFF) {
         // MBC 3 will read/write to the real time clock if selecting a ram bank higher than 7
+        if (!MBCRegisters.RAMEnable) {
+            return 0xFF;
+        }
         if (MBCRegisters.RAMBankNumber <= 0x07) {
             // Treats bank 0 as bank 1
-            if (MBCRegisters.RAMBankNumber == 0) {
-                return Globals.cartridgeRAM[(addr - 0xA000) + 8 * BYTE_VALUES.KiB];
-            }
-            else {
-                return Globals.cartridgeRAM[(addr - 0xA000) + MBCRegisters.RAMBankNumber * 8 * BYTE_VALUES.KiB];
-            }
+            let bankSelected = MBCRegisters.RAMBankNumber ? MBCRegisters.RAMBankNumber : 1;
+            return Globals.cartridgeRAM[(addr - 0xA000) + bankSelected * 8 * BYTE_VALUES.KiB];
         }
         else {
             switch (MBCRegisters.RAMBankNumber) {
@@ -573,11 +572,16 @@ function readMBC3(addr) {
 
 function writeMBC3(addr, val) {
     if (addr <= 0x1FFF) {
-        MBCRegisters.RAMEnable = val;
+        if (val === 0x00) {
+            MBCRegisters.RAMEnable = 0;
+        }
+        else if (val === 0x0A) {
+            MBCRegisters.RAMEnable = 1;
+        }
         return;
     }
     else if (addr <= 0x3FFF) {
-        MBCRegisters.ROMBankNumber = val;
+        MBCRegisters.ROMBankNumber = val & 0x7F;
         return;
     }
     else if (addr <= 0x5FFF) {
@@ -603,17 +607,16 @@ function writeMBC3(addr, val) {
         return;
     }
     else if (addr <= 0xBFFF) {
+        if (!MBCRegisters.RAMEnable) {
+            return;
+        }
+
         // MBC 3 will read/write to the real time clock if selecting a ram bank higher than 7
         if (MBCRegisters.RAMBankNumber <= 0x07) {
             // Treats bank 0 as bank 1
-            if (MBCRegisters.RAMBankNumber == 0) {
-                Globals.cartridgeRAM[(addr - 0xA000) + 8 * BYTE_VALUES.KiB] = val;
-                return;
-            }
-            else {
-                Globals.cartridgeRAM[(addr - 0xA000) + MBCRegisters.RAMBankNumber * 8 * BYTE_VALUES.KiB] = val;
-                return;
-            }
+            let bankSelected = MBCRegisters.RAMBankNumber ? MBCRegisters.RAMBankNumber : 1;
+            Globals.cartridgeRAM[(addr - 0xA000) + bankSelected * 8 * BYTE_VALUES.KiB] = val;
+            return;
         }
         else {
             switch (MBCRegisters.RAMBankNumber) {

@@ -57,7 +57,7 @@ function renderPixel(x, y, value, priority = true, bypassPriority = false, palet
         writePixelToBuffer(x, y, IOValues.defaultColorPalette[value], priority, bypassPriority);
     }
     else {
-        writePixelToBuffer(x, y, palette[value], priority, bypassPriority); // TODO Support Color Actually
+        writePixelToBuffer(x, y, palette[value], priority, bypassPriority);
     }
 }
 
@@ -87,7 +87,7 @@ function clearVideoBuffer() {
  * @description https://gbdev.io/pandocs/Tile_Data.html
  * @param {number} first Least significant byte. First byte read in memory 
  * @param {number} second Most significant byte. Second byte read in memory
- * @returns {list<number>} List of pixel ids
+ * @returns {Array<number>} List of pixel ids
  */
 function extractPixelsFromBytes(first, second) {
     const pixels = [];
@@ -137,8 +137,23 @@ function drawLCDLine(line) {
                         tileBankBaseAddress0 + tileNumber * 0x10 :
                         tileBankBaseAddress1 + (tileNumber - 128) * 0x10
                 );
-                const tileDataAddress = tileBlockAddress + tileRow * 2;
-                const tileData = extractPixelsFromBytes(generalRead(tileDataAddress), generalRead(tileDataAddress + 1));
+
+                const tileAttributes = Globals.metadata.supportsColor ? Globals.VRAM1[tileMapAddress - 0x8000] : 0;
+                const actualRow = (((tileAttributes & 0x40) ? 7 - tileRow : tileRow)); // y-flip
+                const tileDataAddress = tileBlockAddress + actualRow * 2;
+
+                let tileData;
+                if (tileAttributes & 0x08) { // Is it in bank 1?
+                    tileData = extractPixelsFromBytes(Globals.VRAM1[tileDataAddress - 0x8000], Globals.VRAM1[(tileDataAddress + 1) - 0x8000]);
+                }
+                else {
+                    tileData = extractPixelsFromBytes(generalRead(tileDataAddress), generalRead(tileDataAddress + 1));
+                }
+
+                if (tileAttributes & 0x20) { // x-flip
+                    tileData.reverse();
+                }
+
                 const startTileColumn = (i === 0) ? (left % 8) : 0;
                 const endTileColumn = (i === 21) ? (right % 8) : 7;
                 for (let j = startTileColumn; j <= endTileColumn; j++) {
@@ -166,7 +181,7 @@ function drawLCDLine(line) {
                         color = pixel;
                     }
 
-                    const priority = Globals.metadata.supportsColor ? false : pixel !== 0; // TODO Gameboy Color Implementation
+                    const priority = Globals.metadata.supportsColor ? (tileAttributes & 0x80) != 0 : pixel !== 0; // TODO Gameboy Color Implementation
                     renderPixel(column++, line, color, priority, true);
                 }
             }
@@ -191,8 +206,22 @@ function drawLCDLine(line) {
                         tileBankBaseAddress0 + tileNumber * 0x10 :
                         tileBankBaseAddress1 + (tileNumber - 128) * 0x10
                 );
-                const tileDataAddress = tileBlockAddress + tileRow * 2;
-                const tileData = extractPixelsFromBytes(generalRead(tileDataAddress), generalRead(tileDataAddress + 1));
+                const tileAttributes = Globals.metadata.supportsColor ? Globals.VRAM1[tileMapAddress - 0x8000] : 0;
+                const actualRow = (((tileAttributes & 0x40) ? 7 - tileRow : tileRow)); // y-flip
+                const tileDataAddress = tileBlockAddress + actualRow * 2;
+
+                let tileData;
+                if (tileAttributes & 0x08) { // Is it in bank 1?
+                    console.log("Hi")
+                    tileData = extractPixelsFromBytes(Globals.VRAM1[tileDataAddress - 0x8000], Globals.VRAM1[(tileDataAddress + 1) - 0x8000]);
+                }
+                else {
+                    tileData = extractPixelsFromBytes(generalRead(tileDataAddress), generalRead(tileDataAddress + 1));
+                }
+
+                if (tileAttributes & 0x20) { // x-flip
+                    tileData.reverse();
+                }
 
                 for (let j = 0; j < tileData.length; j++) {
                     const pixel = tileData[j];
@@ -219,7 +248,7 @@ function drawLCDLine(line) {
                         color = pixel;
                     }
 
-                    const priority = Globals.metadata.supportsColor ? false : true; // TODO Gameboy Color Implementation
+                    const priority = Globals.metadata.supportsColor ? tileAttributes & 0x80 : true; // TODO Gameboy Color Implementation
                     renderPixel((IORegisters.WX - 7) + i * 8 + j, line, color, priority);
                 }
 
@@ -448,10 +477,6 @@ function doLCDUpdate() {
                         drawLCDLine(IORegisters.LY);
                     }
                     changeLCDMode(0);
-
-                    if (Globals.metadata.supportsColor) {
-                        // TODO Implement GBC stuff
-                    }
                 }
                 break;
         }

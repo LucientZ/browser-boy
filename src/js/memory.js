@@ -1,7 +1,7 @@
 /**
  * Registers in the MBC chip
  * @prop {number}        RAMEnable     If truthy, the *cartridge* ram is enabled. Else, it is disabled (Should return 0xFF and ignore writes)
- * @prop {number}        ROMBankNumber Says which ROM bank is selected that the 
+ * @prop {number}        ROMBankNumber Says which ROM bank is selected that the
  */
 const MBCRegisters = {
     RAMEnable: 0x00,
@@ -175,7 +175,7 @@ function readIO(addr) {
 }
 
 /**
- * 
+ * https://gbdev.io/pandocs/Memory_Map.html#io-ranges
  * @param {number} addr 
  * @param {number} val 
  */
@@ -303,8 +303,9 @@ function writeIO(addr, val) {
 //// Generic read/write ops ////
 
 /**
- * 
+ * https://gbdev.io/pandocs/Memory_Map.html
  * @param {number} addr 
+ * @returns {number} Value at given address
  */
 function generalRead(addr) {
     if (addr >= 0x8000 && addr <= 0x9FFF) {
@@ -335,10 +336,9 @@ function generalRead(addr) {
 }
 
 /**
- * 
+ * https://gbdev.io/pandocs/Memory_Map.html
  * @param {number} addr 
  * @param {number} val
- * @returns {number} 
  */
 function generalWrite(addr, val) {
     if (addr >= 0x8000 && addr <= 0x9FFF) {
@@ -377,9 +377,9 @@ function generalWrite(addr, val) {
 //// No MBC ////
 
 /**
- * 
+ * https://gbdev.io/pandocs/nombc.html
  * @param {number} addr 
- * @returns {number} value at address
+ * @returns {number} Value at given address
 */
 function readMBCNone(addr) {
     if (addr <= 0x7FFF) {
@@ -396,15 +396,12 @@ function readMBCNone(addr) {
 }
 
 /**
- * 
+ * https://gbdev.io/pandocs/nombc.html
  * @param {number} addr 
  * @param {number} val 
  */
 function writeMBCNone(addr, val) {
-    if (addr <= 0x7FFF) {
-        Globals.ROM[addr] = val;
-    }
-    else if (addr >= 0xA000 && addr <= 0xBFFF) {
+    if (addr >= 0xA000 && addr <= 0xBFFF) {
         if (Globals.cartridgeRAM) {
             Globals.cartridgeRAM[addr] = val;
         }
@@ -420,7 +417,7 @@ function writeMBCNone(addr, val) {
  * If the banking mode is 1, translate the address
  * https://gbdev.io/pandocs/MBC1.html#addressing-diagrams
  * @param {number} addr 
- * @returns Banking mode address
+ * @returns {number} Banking mode address
  */
 function getMBC1BankingModeAddress(addr) {
     if (MBCRegisters.bankingModeSelect === 0x01) {
@@ -438,9 +435,9 @@ function getMBC1BankingModeAddress(addr) {
 }
 
 /**
- * 
+ * https://gbdev.io/pandocs/MBC1.html
  * @param {number} addr 
- * @returns {number}
+ * @returns {number} Value at given address
  */
 function readMBC1(addr) {
     addr = getMBC1BankingModeAddress(addr);
@@ -468,7 +465,7 @@ function readMBC1(addr) {
 }
 
 /**
- * 
+ * https://gbdev.io/pandocs/MBC1.html
  * @param {number} addr 
  * @param {number} val 
  */
@@ -496,12 +493,13 @@ function writeMBC1(addr, val) {
         generalWrite(addr, val);
     }
 }
+
 //// MBC 2 ////
 
 /**
- * 
+ * https://gbdev.io/pandocs/MBC2.html
  * @param {number} addr 
- * @returns {number} value at address
+ * @returns {number} Value at given address
  */
 function readMBC2(addr) {
     if (addr <= 0x3FFF) {
@@ -523,6 +521,11 @@ function readMBC2(addr) {
     return generalRead(addr);
 }
 
+/**
+ * https://gbdev.io/pandocs/MBC2.html
+ * @param {number} addr 
+ * @param {number} val 
+ */
 function writeMBC2(addr, val) {
     if (addr <= 0x3FFF) {
         if (addr & 0x100) {
@@ -553,6 +556,11 @@ function writeMBC2(addr, val) {
 
 //// MBC 3 ////
 
+/**
+ * https://gbdev.io/pandocs/MBC3.html
+ * @param {number} addr 
+ * @returns {number} Value at given address
+ */
 function readMBC3(addr) {
     if (addr <= 0x3FFF) {
         return Globals.ROM[addr];
@@ -566,9 +574,7 @@ function readMBC3(addr) {
             return 0xFF;
         }
         if (MBCRegisters.RAMBankNumber <= 0x07) {
-            // Treats bank 0 as bank 1
-            let bankSelected = MBCRegisters.RAMBankNumber ? MBCRegisters.RAMBankNumber : 1;
-            return Globals.cartridgeRAM[(addr - 0xA000) + bankSelected * 8 * BYTE_VALUES.KiB];
+            return Globals.cartridgeRAM[(addr - 0xA000) + MBCRegisters.RAMBankNumber * 8 * BYTE_VALUES.KiB];
         }
         else {
             switch (MBCRegisters.RAMBankNumber) {
@@ -584,6 +590,11 @@ function readMBC3(addr) {
     return generalRead(addr);
 }
 
+/**
+ * https://gbdev.io/pandocs/MBC3.html
+ * @param {number} addr 
+ * @param {number} val 
+ */
 function writeMBC3(addr, val) {
     if (addr <= 0x1FFF) {
         if (val === 0x00) {
@@ -627,9 +638,7 @@ function writeMBC3(addr, val) {
 
         // MBC 3 will read/write to the real time clock if selecting a ram bank higher than 7
         if (MBCRegisters.RAMBankNumber <= 0x07) {
-            // Treats bank 0 as bank 1
-            let bankSelected = MBCRegisters.RAMBankNumber ? MBCRegisters.RAMBankNumber : 1;
-            Globals.cartridgeRAM[(addr - 0xA000) + bankSelected * 8 * BYTE_VALUES.KiB] = val;
+            Globals.cartridgeRAM[(addr - 0xA000) + MBCRegisters.RAMBankNumber * 8 * BYTE_VALUES.KiB] = val;
             return;
         }
         else {
@@ -643,6 +652,32 @@ function writeMBC3(addr, val) {
             return;
         }
     }
+    generalWrite(addr, val);
+}
+
+//// MBC 5 ////
+
+/**
+ * https://gbdev.io/pandocs/MBC5.html
+ * @param {number} addr 
+ * @returns {number}
+ */
+function readMBC5(addr) {
+    if (addr <= 0x3FFF) {
+        return Globals.ROM[addr];
+    }
+    else if (addr <= 0x7FFF) {
+        return Globals.ROM[(addr - 0x4000) + MBCRegisters.ROMBankNumber * 16 * BYTE_VALUES.KiB];
+    }
+    return generalRead(addr);
+}
+
+/**
+ * https://gbdev.io/pandocs/MBC5.html
+ * @param {number} addr 
+ * @param {number} val 
+ */
+function writeMBC5(addr, val) {
     generalWrite(addr, val);
 }
 

@@ -40,7 +40,7 @@ function writePixelToBuffer(x, y, color, priority = true, bypassPriority = false
     if (!priority && !bypassPriority && (IOValues.videoBuffer[index] & 0x8000)) {
         return;
     }
-    IOValues.videoBuffer[index] = (priority << 15) | color;
+    IOValues.videoBuffer[index] = ((!!priority) << 15) | color;
 }
 
 
@@ -186,7 +186,8 @@ function drawLCDLine(line) {
                         color = pixel;
                     }
 
-                    const priority = Globals.metadata.supportsColor ? (tileAttributes & 0x80) != 0 : pixel !== 0; // TODO Gameboy Color Implementation
+                    const priority = Globals.metadata.supportsColor ? ((tileAttributes & 0x80) !== 0 || (IORegisters.LCDC & 0x01)) && color !== 0 : color !== 0;
+
                     renderPixel(column++, line, color, priority, true, palette);
                 }
             }
@@ -261,7 +262,7 @@ function drawLCDLine(line) {
                         color = pixel;
                     }
 
-                    const priority = Globals.metadata.supportsColor ? tileAttributes & 0x80 : true; // TODO Gameboy Color Implementation
+                    const priority = Globals.metadata.supportsColor ? ((tileAttributes & 0x80) !== 0 || (IORegisters.LCDC & 0x01)) && color !== 0 : true;
                     renderPixel((IORegisters.WX - 7) + i * 8 + j, line, color, priority, palette);
                 }
 
@@ -385,7 +386,7 @@ function drawLCDLine(line) {
                 else {
                     color = pixel;
                 }
-                renderPixel((spriteX - 8) + i, line, color, !(flags & 0x80), false, palette);
+                renderPixel((spriteX - 8) + i, line, color, !(flags & 0x80), !(IORegisters.LCDC & 0x01), palette);
             }
         }
     }

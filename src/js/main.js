@@ -146,7 +146,7 @@ function parseROM(rom) {
         case 0x07:
         case 0x08:
             Globals.metadata.ROMSize = 32 * BYTE_VALUES.KiB * (1 << Globals.ROM[ROMHeaderAddresses.ROM_SIZE]);
-            Globals.metadata.ROMBankNum = Math.floor(Globals.metadata.RAMSize / (16 * BYTE_VALUES.KiB));
+            Globals.metadata.ROMBankNum = Math.floor(Globals.metadata.ROMSize / (16 * BYTE_VALUES.KiB));
             break;
         case 0x52:
             Globals.metadata.ROMSize = Math.floor(1.1 * BYTE_VALUES.MiB);

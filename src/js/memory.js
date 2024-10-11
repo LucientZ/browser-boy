@@ -66,6 +66,7 @@ const IOValues = {
     HDMATransferCycles: 0x00,
     HDMASource: 0x00,
     HDMADestination: 0x00,
+    HDMAInProgress: false,
     upPressed: false,
     downPressed: false,
     leftPressed: false,
@@ -75,6 +76,11 @@ const IOValues = {
     startPressed: false,
     selectPressed: false,
 }
+
+Object.preventExtensions(MBCRegisters);
+Object.preventExtensions(RTCRegisters);
+Object.preventExtensions(IORegisters);
+Object.preventExtensions(IOValues);
 
 //// IO read/write ops ////
 
@@ -145,6 +151,8 @@ function readIO(addr) {
             return IORegisters.VRAMBankNumber & 0x01;
         case 0x50:
             return IORegisters.bootROMDisabled;
+        case 0x55:
+            return ((!IOValues.HDMAInProgress) << 7) | (Globals.HRAM[0x55] & 0x7F);
         case 0x68:
             return IORegisters.backgroundPaletteIndex;
         case 0x69:
@@ -246,18 +254,19 @@ function writeIO(addr, val) {
             return;
         case 0x55:
             if (Globals.metadata.supportsColor) {
-                if (!(val & 0x80) && IOValues.HDMATransferRequested) { // Cancel HBLANK transfer
-                    IOValues.HDMATransferRequested = false;
+                if (!(val & 0x80) && IOValues.HDMAInProgress) { // Cancel HBLANK transfer
+                    IOValues.HDMAInProgress = false;
                     Globals.HRAM[0x55] = 0x80 | (Globals.HRAM[0x55] & 0x7F);
                     return;
                 }
                 else {
-                    IOValues.HDMATransferRequested = true;
-                    IOValues.HDMASource = ((Globals.HRAM[0x51] << 8) | (Globals.HRAM[0x52])) & 0xFFF0;
-                    IOValues.HDMADestination = (((Globals.HRAM[0x53] << 8) | (Globals.HRAM[0x54])) & 0x1FF0) | 0x8000
+                    IOValues.HDMAInProgress = true;
+                    IOValues.HDMASource = ((Globals.HRAM[0x51] << 8) | (Globals.HRAM[0x52] & 0xF0));
+                    IOValues.HDMADestination = ((((Globals.HRAM[0x53] & 0x1F) << 8) | (Globals.HRAM[0x54] & 0xF0))) | 0x8000;
+                    Globals.HRAM[0x55] = val;
                 }
             }
-            break;
+            return;
         case 0x68:
             IORegisters.backgroundPaletteIndex = val;
             return;

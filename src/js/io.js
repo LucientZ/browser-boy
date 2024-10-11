@@ -186,7 +186,7 @@ function drawLCDLine(line) {
                         color = pixel;
                     }
 
-                    const priority = Globals.metadata.supportsColor ? ((tileAttributes & 0x80) !== 0 || (IORegisters.LCDC & 0x01)) && color !== 0 : color !== 0;
+                    const priority = Globals.metadata.supportsColor ? ((tileAttributes & 0x80) !== 0 || (IORegisters.LCDC & 0x01)) && pixel !== 0 : pixel !== 0;
 
                     renderPixel(column++, line, color, priority, true, palette);
                 }
@@ -262,7 +262,7 @@ function drawLCDLine(line) {
                         color = pixel;
                     }
 
-                    const priority = Globals.metadata.supportsColor ? ((tileAttributes & 0x80) !== 0 || (IORegisters.LCDC & 0x01)) && color !== 0 : true;
+                    const priority = Globals.metadata.supportsColor ? ((tileAttributes & 0x80) !== 0 || (IORegisters.LCDC & 0x01)) && pixel !== 0 : true;
                     renderPixel((IORegisters.WX - 7) + i * 8 + j, line, color, priority, palette);
                 }
 
@@ -386,7 +386,8 @@ function drawLCDLine(line) {
                 else {
                     color = pixel;
                 }
-                renderPixel((spriteX - 8) + i, line, color, !(flags & 0x80), !(IORegisters.LCDC & 0x01), palette);
+                const priority = !(flags & 0x80) && pixel !== 0;
+                renderPixel((spriteX - 8) + i, line, color, priority, !(IORegisters.LCDC & 0x01), palette);
             }
         }
     }
@@ -577,8 +578,9 @@ function doHDMATransfer() {
         Globals.HRAM[0x55] = 0x80 | (((Globals.HRAM[0x55] & 0x7F) - 1) & 0x7F);
         blocksTransferred = 1;
     }
+
     if (Globals.HRAM[0x55] === 0xFF) {
-        IOValues.HDMATransferRequested = false;
+        IOValues.HDMAInProgress = false;
     }
 
     Globals.halted = false;
@@ -588,12 +590,15 @@ function doHDMATransfer() {
 /////////////////////// Timer Stuff ///////////////////////
 
 function doTimerUpdate() {
-    let cycleDelta = Globals.cycleNumber - IOValues.timerCycles;
     IORegisters.divider = Globals.cycleNumber & 0xFF;
-
+    
     // Return if timer isn't enabled
     if (!(IORegisters.timerControl & 0x04)) {
         return;
+    }
+    let cycleDelta = Globals.cycleNumber - IOValues.timerCycles;
+    if (Globals.doubleSpeed) {
+        cycleDelta /= 2;
     }
 
     let timerIncrementPeriod; // In m-cycles

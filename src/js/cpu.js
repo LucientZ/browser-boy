@@ -28,6 +28,8 @@ const Registers = {
     PC: 0x0100, // Program counter
 }
 
+Object.preventExtensions(Registers);
+
 /////////////////////// CPU INSTRUCTIONS ///////////////////////
 
 /**
@@ -1027,7 +1029,6 @@ const opcodeTable8Bit = {
     },
     0xE8: () => {
         // ADD SP, s8
-        // TODO
         let value = gameboyRead(Registers.PC++);
         if (value >= 128) {
             value |= 0xFF00;

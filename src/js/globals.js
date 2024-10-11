@@ -97,5 +97,9 @@ const Globals = {
     serialOutput: "",
     breakpoints: [],
     callStack: [],
-    iterationsPerTick: 20000,
+    iterationsPerTick: 7000,
 }
+
+Object.preventExtensions(BYTE_VALUES);
+Object.preventExtensions(ROMHeaderAddresses);
+Object.preventExtensions(Globals);

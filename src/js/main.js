@@ -257,9 +257,6 @@ function parseROM(rom) {
 }
 
 function doProgramIteration() {
-    if (Globals.frozen) {
-        return;
-    }
     doLCDUpdate();
     doTimerUpdate();
     handleInterrupts();
@@ -275,13 +272,13 @@ function doProgramIteration() {
     }
 
     // GBC only
-    if (IOValues.HDMATransferRequested && Globals.metadata.supportsColor) {
+    if (IOValues.HDMAInProgress && Globals.metadata.supportsColor) {
         doHDMATransfer();
     }
 }
 
 setInterval(() => {
-    if (Globals.ROM) {
+    if (Globals.ROM && !Globals.frozen) {
         for (let i = 0; i < Globals.iterationsPerTick; i++) {
             doProgramIteration();
         }

@@ -291,7 +291,6 @@ setInterval(() => {
 setInterval(flushVideoBuffer, 16.74);
 setInterval(() => {
     updateVRAMInspector();
-    updateStackInspector();
 }, 1000);
 
 window.onload = () => {

@@ -180,12 +180,9 @@ function doSignedRelativeJump() {
     Globals.cycleNumber += 3;
 }
 
-
-function updateStackInspector() {
-    const output = Globals.callStack.join("\n");
-    document.getElementById("call-stack").innerText = output;
-}
-
+/**
+ * Moves PC to the immediate value
+ */
 function doJump() {
     Registers.PC = gameboyRead(Registers.PC) | (gameboyRead(Registers.PC + 1) << 8);
     Globals.cycleNumber += 3;
@@ -226,7 +223,6 @@ function doCall(address = undefined) {
 
     gameboyWrite(--Registers.SP, Registers.PC >> 8);
     gameboyWrite(--Registers.SP, Registers.PC & 0xFF);
-    Globals.callStack.push(`0x${Registers.SP.toString(16)}`);
     Registers.PC = address;
     Globals.cycleNumber += 3;
 }
@@ -235,7 +231,6 @@ function doCall(address = undefined) {
  * Pops the last value on the stack into PC
 */
 function doReturn() {
-    Globals.callStack.pop();
     Registers.PC = gameboyRead(Registers.SP) | (gameboyRead(Registers.SP + 1) << 8);
     Registers.SP += 2;
     Globals.cycleNumber += 3;

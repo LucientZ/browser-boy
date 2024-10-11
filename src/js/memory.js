@@ -603,15 +603,12 @@ function writeMBC3(addr, val) {
         else if (val === 0x0A) {
             MBCRegisters.RAMEnable = 1;
         }
-        return;
     }
     else if (addr <= 0x3FFF) {
         MBCRegisters.ROMBankNumber = val & 0x7F;
-        return;
     }
     else if (addr <= 0x5FFF) {
         MBCRegisters.RAMBankNumber = val;
-        return;
     }
     else if (addr <= 0x7FFF) {
         // Latch Clock Data
@@ -625,11 +622,9 @@ function writeMBC3(addr, val) {
             RTCRegisters.DH = ((totalDays & 0x100) >> 8) | ((totalDays > 0x1FF) << 7) | (RTCRegisters.DH & 0x80);
         }
         MBCRegisters.latchClockData = val;
-        return;
     }
     else if (addr <= 0x9FFF) {
         generalWrite(addr, val);
-        return;
     }
     else if (addr <= 0xBFFF) {
         if (!MBCRegisters.RAMEnable) {
@@ -639,7 +634,6 @@ function writeMBC3(addr, val) {
         // MBC 3 will read/write to the real time clock if selecting a ram bank higher than 7
         if (MBCRegisters.RAMBankNumber <= 0x07) {
             Globals.cartridgeRAM[(addr - 0xA000) + MBCRegisters.RAMBankNumber * 8 * BYTE_VALUES.KiB] = val;
-            return;
         }
         else {
             switch (MBCRegisters.RAMBankNumber) {
@@ -649,10 +643,11 @@ function writeMBC3(addr, val) {
                 case 0x0B: RTCRegisters.DL = val; break;
                 case 0x0C: RTCRegisters.DH = val; break;
             }
-            return;
         }
     }
-    generalWrite(addr, val);
+    else {
+        generalWrite(addr, val);
+    }
 }
 
 //// MBC 5 ////
@@ -667,8 +662,19 @@ function readMBC5(addr) {
         return Globals.ROM[addr];
     }
     else if (addr <= 0x7FFF) {
+        // ROM bank 0 is actually 0 now
         return Globals.ROM[(addr - 0x4000) + MBCRegisters.ROMBankNumber * 16 * BYTE_VALUES.KiB];
     }
+    else if (addr >= 0xA000 && addr <= 0xBFFF) {
+        if (!MBCRegisters.RAMEnable) {
+            return 0xFF;
+        }
+
+        // Bit 3 is hooked up to the rumble motor if the cartridge uses rumble
+        let bankSelected = Globals.metadata.supportsRumble ? MBCRegisters.RAMBankNumber & 0xF7 : MBCRegisters.RAMBankNumber;
+        return Globals.cartridgeRAM[(addr - 0xA000) + bankSelected * 8 * BYTE_VALUES.KiB];
+    }
+
     return generalRead(addr);
 }
 
@@ -678,7 +684,36 @@ function readMBC5(addr) {
  * @param {number} val 
  */
 function writeMBC5(addr, val) {
-    generalWrite(addr, val);
+    if (addr <= 0x1FFF) {
+        if (val & 0x0A) {
+            MBCRegisters.RAMEnable = 1;
+        }
+        else if (val === 0) {
+            MBCRegisters.RAMEnable = 0;
+        }
+    }
+    else if (addr <= 0x2FFF) {
+        MBCRegisters.ROMBankNumber = (MBCRegisters.ROMBankNumber & 0x100) | val;
+    }
+    else if (addr <= 0x3FFF) {
+        MBCRegisters.ROMBankNumber = (MBCRegisters.ROMBankNumber & 0x0FF) | ((val & 0x01) << 8);
+    }
+    else if (addr <= 0x5FFF) {
+        MBCRegisters.RAMBankNumber = val;
+    }
+    else if (addr >= 0xA000 && addr <= 0xBFFF) {
+        if (!MBCRegisters.RAMEnable) {
+            return 0xFF;
+        }
+
+        let bankSelected = Globals.metadata.supportsRumble ? MBCRegisters.RAMBankNumber & 0xF7 : MBCRegisters.RAMBankNumber;
+        Globals.cartridgeRAM[(addr - 0xA000) + bankSelected * 8 * BYTE_VALUES.KiB] = val;
+    }
+    else {
+        generalWrite(addr, val);
+    }
+
+
 }
 
 /**
@@ -695,6 +730,8 @@ function readMem(addr) {
             return readMBC2(addr);
         case "MBC3":
             return readMBC3(addr);
+        case "MBC5":
+            return readMBC5(addr);
         default:
             throw new Error(`${Globals.MBC} not supported`);
     }
@@ -718,6 +755,9 @@ function writeMem(addr, val) {
             break;
         case "MBC3":
             writeMBC3(addr, val);
+            break;
+        case "MBC5":
+            writeMBC5(addr, val);
             break;
         default:
             throw new Error(`${Globals.MBC} not supported`);

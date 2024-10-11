@@ -27,13 +27,14 @@ const ROMHeaderAddresses = Object.freeze({
 
 /**
  * @typedef ROMMetadata
- * @property {string} gameTitle
- * @property {boolean} supportsColor
- * @property {boolean} supportsSGB
- * @property {number} ROMSize
- * @property {number} ROMBankNum
- * @property {number} RAMSize
- * @property {number} RAMBankNum
+ * @property {string}  gameTitle       Simply the title of the game
+ * @property {boolean} supportsColor   Whether or not the ROM supports color. This enables/disables CGB features
+ * @property {boolean} supportsSGB     Whether or not the ROM supports Super Gameboy features.
+ * @property {boolean} supportsRumble  Whether or not the ROM supports Rumble. This affects cartridge RAM accessing
+ * @property {number}  ROMSize         How much space the ROM takes up
+ * @property {number}  ROMBankNum      How many ROM banks this cartridge has 
+ * @property {number}  RAMSize         How much space the cartridge RAM takes up
+ * @property {number}  RAMBankNum      How many RAM banks this cartridge has
  */
 
 /**
@@ -72,6 +73,7 @@ const Globals = {
         gameTitle: "",
         supportsColor: false,
         supportsSGB: false,
+        supportsRumble: false,
         ROMSize: 0, // Cartridge ROM size in bytes
         ROMBankNum: 0,
         RAMSize: 0, // Cartridge RAM size in bytes

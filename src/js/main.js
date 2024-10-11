@@ -250,6 +250,16 @@ function parseROM(rom) {
             throw new Error("Unsupported cartridge type");
     }
 
+    switch (Globals.ROM[ROMHeaderAddresses.CARTRIDGE_TYPE]) {
+        case 0x1C:
+        case 0x1D:
+        case 0x1E:
+        case 0x22:
+            Globals.metadata.supportsRumble = true;
+        default:
+            Globals.metadata.supportsRumble = false;
+    }
+
     // Flags
     Globals.metadata.supportsColor = (Globals.ROM[ROMHeaderAddresses.CGB_FLAG] & 0x80) != 0;
     Globals.metadata.supportsSGB = Globals.ROM[ROMHeaderAddresses.SGB_FLAG] == 0x03;

@@ -280,11 +280,9 @@ function drawLCDLine(line) {
     // https://gbdev.io/pandocs/OAM.html
     // https://gbdev.io/pandocs/OAM.html#object-priority-and-conflicts
     if (IORegisters.LCDC & 0x02) {
-        // There are up to 40 sprites in the OAM
-
         const spritesToDraw = [];
         const spriteHeight = (IORegisters.LCDC & 0x04) ? 16 : 8;
-        for (let i = 0; i < 40; i++) {
+        for (let i = 0; i < 40; i++) { // There are up to 40 sprites in the OAM
             const spriteY = Globals.OAM[i * 4];
             const spriteX = Globals.OAM[i * 4 + 1];
 
@@ -323,7 +321,7 @@ function drawLCDLine(line) {
         for (const spriteNum of spritesToDraw) {
             const spriteY = Globals.OAM[spriteNum * 4];
             const spriteX = Globals.OAM[spriteNum * 4 + 1];
-            let spriteIndex = Globals.OAM[spriteNum * 4 + 2] + 1; // I'm really not sure why this needs to be offset by one, but I'll take it.
+            let spriteIndex = Globals.OAM[spriteNum * 4 + 2];
             const flags = Globals.OAM[spriteNum * 4 + 3];
 
             let VRAM = Globals.VRAM0;
@@ -337,7 +335,7 @@ function drawLCDLine(line) {
             }
 
             // Get row to draw and flip y if necessary
-            let spriteRow = line + spriteHeight - spriteY;
+            let spriteRow = line + 16 - spriteY;
             if ((flags & 0x40)) {
                 spriteRow = spriteHeight - spriteRow - 1;
             }

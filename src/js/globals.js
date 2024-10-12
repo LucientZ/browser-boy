@@ -35,6 +35,7 @@ const ROMHeaderAddresses = Object.freeze({
  * @property {number}  ROMBankNum      How many ROM banks this cartridge has 
  * @property {number}  RAMSize         How much space the cartridge RAM takes up
  * @property {number}  RAMBankNum      How many RAM banks this cartridge has
+ * @property {string}  filename        Name of the file the ROM came from
  */
 
 /**
@@ -70,6 +71,7 @@ const ROMHeaderAddresses = Object.freeze({
 */
 const Globals = {
     metadata: {
+        filename: "",
         gameTitle: "",
         supportsColor: false,
         supportsSGB: false,

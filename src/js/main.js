@@ -18,6 +18,7 @@ async function dropHandler(event) {
             const file = item.getAsFile();
             if (file !== null && file.type === "") {
                 Globals.ROM = new Uint8Array(await file.arrayBuffer());
+                Globals.metadata.filename = file.name;
             }
             else {
                 alert("Invalid ROM");
@@ -38,6 +39,25 @@ async function dropHandler(event) {
         }
     }
     Globals.halted = false;
+}
+
+function downloadSaveData() {
+    if (Globals.cartridgeRAM) {
+        const blob = new Blob([Globals.cartridgeRAM], {
+            type: "application/octet-stream"
+        });
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = Globals.metadata.filename.replace(/\.gb.*/, ".sav");
+        a.style = "display: none;";
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+    }
+    else {
+        alert("Cartridge does not have savable data (external RAM)");
+    }
 }
 
 /**

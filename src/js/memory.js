@@ -1,33 +1,71 @@
 /**
  * Registers in the MBC chip
- * @prop {number}        RAMEnable     If truthy, the *cartridge* ram is enabled. Else, it is disabled (Should return 0xFF and ignore writes)
- * @prop {number}        ROMBankNumber Says which ROM bank is selected that the
+ * @typedef MBCRegisters
+ * @prop {number}            RAMEnable         If truthy, the *cartridge* ram is enabled. Else, it is disabled (Should return 0xFF and ignore writes)
+ * @prop {number}            ROMBankNumber     Says which ROM bank is selected that the program can access
+ * @prop {number}            RAMBankNumber     Says which *cartridge* RAM bank is selected that the program can access
+ * @prop {number}            WRAMBankNumber    Says which *device* RAM bank is selected that the program can access
+ * @prop {number}            bankingModeSelect Says what banking mode is selected for MBC1 (See MBC1 specs for details)
+ * @prop {Uint8Array | null} builtInRAM        Array used for MBC2 built in RAM
+ * @prop {Uint8Array}        latchClockData    RTC hardware latch
  */
+/** @type {MBCRegisters} */
 const MBCRegisters = {
     RAMEnable: 0x00,
     ROMBankNumber: 0x01,
     RAMBankNumber: 0x00,
     WRAMBankNumber: 0x01,
     bankingModeSelect: 0x00,
-    RTC: 0x00,
     builtInRAM: null, // Initializes on start if this is an MBC2 cartridge
     latchClockData: 0x00,
 }
 
 /**
  * Registers for a real time clock if it exists
+ * @typedef RTCRegisters
+ * @prop {number} seconds Seconds since "RTC epoch"
+ * @prop {number} minutes Minutes since "RTC epoch"
+ * @prop {number} hours   Hours since "RTC epoch"
+ * @prop {number} DL      Day Low: Lower 8 bits of day counter
+ * @prop {number} DH      Day High: Upper 1 bit of day counter
  */
+/** @type {RTCRegisters} */
 const RTCRegisters = {
     seconds: 0x00,
     minutes: 0x00,
     hours: 0x00,
-    DL: 0x00, // Lower 8 bits of day counter
-    DH: 0x00, // Upper 1 bit of day counter
+    DL: 0x00,
+    DH: 0x00,
 }
 
 /**
  * Registers in HRAM (Named to make things easier)
+ * @typedef IORegisters
+ * @prop {number} joypad                 Joypad input
+ * @prop {number} serialData             Most recent byte in/out of the serial bus
+ * @prop {number} serialControl          Serial bus control
+ * @prop {number} divider                Increases every clock cycle
+ * @prop {number} timerCounter           Timer value
+ * @prop {number} timerModulo            Value counter overflows to
+ * @prop {number} timerControl           Controls whether the timer is enabled and how it works
+ * @prop {number} IF                     Interrupt flags. Used to state which interrupts are being requested
+ * @prop {number} LCDC                   Flags for the LCD display 
+ * @prop {number} LY                     Current line the gameboy is drawing
+ * @prop {number} LYC                    LY compare register. Used for special interrupts
+ * @prop {number} STAT                   State of the LCD display
+ * @prop {number} SCY                    Screen y-coordinate (used for background)
+ * @prop {number} SCX                    Screen x-coordinate (used for background)
+ * @prop {number} WY                     Window y-coordinate
+ * @prop {number} WX                     Window x-coordinate
+ * @prop {number} backgroundPalette      (DMG only) States the palette for the Gameboy
+ * @prop {number} OBP0                   (DMG only) Object palette 0 
+ * @prop {number} OBP1                   (DMG only) Object palette 1
+ * @prop {number} backgroundPaletteIndex (GBC only) States which background palette is selected for the background on the Gameboy Color
+ * @prop {number} spritePaletteIndex     (GBC only) States the currently selected sprite palette
+ * @prop {number} VRAMBankNumber         (GBC only) Selected VRAM bank
+ * @prop {number} bootROMDisabled        States whether the boot ROM is disabled
  */
+/** @type {IORegisters} */
 const IORegisters = {
     joypad: 0x00,
     serialData: 0x00,
@@ -46,21 +84,41 @@ const IORegisters = {
     WY: 0x00, // Window Y position
     WX: 0x00, // Window X position
     backgroundPalette: 0x00, // Used for DMG
-    backgroundPaletteIndex: 0x00, // Used for GBC
-    spritePaletteIndex: 0x00, // Used for GBC
     OBP0: 0x00, // OBJ palette 0
     OBP1: 0x00, // OBJ palette 0
+    backgroundPaletteIndex: 0x00, // Used for GBC
+    spritePaletteIndex: 0x00, // Used for GBC
     VRAMBankNumber: 0x00,
-    bootROMDisabled: 0x00,
+    bootROMDisabled: 0x01,
 }
 
 /**
  * Values that are useful to track, but aren't actual registers
+ * @typedef IOValues
+ * @prop {Uint16Array}         videoBuffer         Array used to store colors to be flushed to the screen
+ * @prop {number}              defaultColorPalette The default color palette for a gameboy
+ * @prop {number}              LCDCycles           How many cycles the LCD display has gone through
+ * @prop {number}              timerCycles         How many cycles the timer has gone through
+ * @prop {number}              DMATransferCycles   How many cycles the DMA transfer has gone through
+ * @prop {number}              HDMATransferCycles  How many cycles the HDMA transfer has gone through
+ * @prop {number}              HDMASource          Address for where the HDMA transfer is copying data *from*
+ * @prop {number}              HDMADestination     Address for where the HDMA transfer is copying data *to*
+ * @prop {boolean}             HDMAInProgress      States whether or not an HDMA transfer is currently in progress
+ * @prop {boolean}             upPressed           Up button is currently pressed
+ * @prop {boolean}             downPressed         Down button is currently pressed
+ * @prop {boolean}             leftPressed         Left button is currently pressed
+ * @prop {boolean}             rightPressed        Right button is currently pressed
+ * @prop {boolean}             aButtonPressed      A button is currently pressed
+ * @prop {boolean}             bButtonPressed      B button is currently pressed
+ * @prop {boolean}             startPressed        Start button is currently pressed
+ * @prop {boolean}             selectPressed       Select button is currently pressed
+ * @prop {AudioContext | null} audioCtx            Used for audio playback. Must be created via user input because of security reasons :P
  */
+/** @type {IOValues} */
 const IOValues = {
-    LCDCycles: 0x00,
     videoBuffer: new Uint16Array(144 * 160),
     defaultColorPalette: [0x7fff, 0x5ad6, 0x39ce, 0x0000], // Default color palette of the gameboy (DMG)
+    LCDCycles: 0x00,
     timerCycles: 0x00,
     DMATransferCycles: 0x00,
     HDMATransferCycles: 0x00,
@@ -75,6 +133,7 @@ const IOValues = {
     bButtonPressed: false,
     startPressed: false,
     selectPressed: false,
+    audioCtx: null, // Must be enabled by user
 }
 
 Object.preventExtensions(MBCRegisters);

@@ -589,7 +589,7 @@ function doHDMATransfer() {
 
 function doTimerUpdate() {
     IORegisters.divider = Globals.cycleNumber & 0xFF;
-    
+
     // Return if timer isn't enabled
     if (!(IORegisters.timerControl & 0x04)) {
         return;
@@ -697,3 +697,43 @@ document.addEventListener("keyup", (event) => {
         IOValues.selectPressed = false;
     }
 });
+
+/////////////////////// Audio Stuff ///////////////////////
+
+function toggleAudio() {
+    const audioToggle = document.getElementById("audio-toggle");
+    if (IOValues.audioCtx) {
+        IOValues.audioCtx = null;
+        audioToggle.innerText = "Unmute Audio";
+    }
+    else {
+        IOValues.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        audioToggle.innerText = "Mute Audio";
+    }
+}
+
+/**
+ * Plays a simple square wave for a set duration
+ * @param {number} frequency Frequency of the square wave 
+ * @param {number} start     How long in seconds until the square wave begins playing
+ * @param {number} duration  How long in seconds the square wave will play
+ * @param {number} gain      How loud the wave is
+ */
+function playSquareWave(frequency, start, duration, gain = 0.3) {
+    if (!IOValues.audioCtx) {
+        return;
+    }
+    console.log(frequency, start, duration, gain);
+    const oscillator = IOValues.audioCtx.createOscillator();
+    const gainNode = IOValues.audioCtx.createGain();
+
+    oscillator.connect(gainNode);
+    oscillator.frequency.value = frequency;
+    oscillator.type = "square";
+
+    gainNode.connect(IOValues.audioCtx.destination);
+    gainNode.gain.value = gain;
+
+    oscillator.start(start);
+    oscillator.stop(duration);
+}

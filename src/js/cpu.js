@@ -1343,6 +1343,7 @@ function doNext8BitInstruction() {
             opcodeTable8Bit[instruction]();
         }
         catch (error) {
+            Globals.frozen = true;
             alert(`Error while attempting to execute instruction 0x${instruction.toString(16)} at $${(Registers.PC - 1).toString(16)}: ${error}`);
         }
     }

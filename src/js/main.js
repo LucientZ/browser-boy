@@ -315,6 +315,9 @@ function doProgramIteration() {
 setInterval(() => {
     if (Globals.ROM && !Globals.frozen) {
         for (let i = 0; i < Globals.iterationsPerTick; i++) {
+            if (Globals.frozen) {
+                break;
+            }
             doProgramIteration();
         }
     }

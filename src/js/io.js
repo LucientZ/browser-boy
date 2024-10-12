@@ -384,8 +384,8 @@ function drawLCDLine(line) {
                 else {
                     color = pixel;
                 }
-                const priority = !(flags & 0x80) && pixel !== 0;
-                renderPixel((spriteX - 8) + i, line, color, priority, !(IORegisters.LCDC & 0x01), palette);
+                const priority = !(flags & 0x80);
+                renderPixel((spriteX - 8) + i, line, color, priority, false, palette);
             }
         }
     }

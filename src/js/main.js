@@ -301,13 +301,6 @@ setInterval(() => {
 }, 1000);
 
 window.onload = () => {
-    const screen = document.getElementById("game-screen");
-    const screenContext = screen.getContext("2d");
-
-    screenContext.canvas.width = 2 * screen.width;
-    screenContext.canvas.height = 2 * screen.height;
-    screenContext.scale(2, 2);
-
     const speedSlider = document.getElementById("runtime-speed-slider");
     speedSlider.value = Globals.iterationsPerTick;
     speedSlider.oninput = () => {

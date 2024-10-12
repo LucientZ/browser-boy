@@ -263,7 +263,7 @@ function drawLCDLine(line) {
                     }
 
                     const priority = Globals.metadata.supportsColor ? ((tileAttributes & 0x80) !== 0 || (IORegisters.LCDC & 0x01)) && pixel !== 0 : true;
-                    renderPixel((IORegisters.WX - 7) + i * 8 + j, line, color, priority, palette);
+                    renderPixel((IORegisters.WX - 7) + i * 8 + j, line, color, priority, false, palette);
                 }
 
             }

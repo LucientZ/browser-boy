@@ -46,7 +46,7 @@ function downloadSaveData() {
         const blob = new Blob([Globals.cartridgeRAM], {
             type: "application/octet-stream"
         });
-        const url = window.URL.createObjectURL(blob);
+        const url = (window.URL || window.webkitURL).createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
         a.download = Globals.metadata.filename.replace(/\.gb.*/, ".sav");

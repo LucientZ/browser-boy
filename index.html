@@ -34,7 +34,11 @@
                     <input id="runtime-speed-slider" class="speed-slider" type="range" min="2000" max="30000" value="50" class="slider" id="myRange">
                 </div>
                 <div class="evenly-spaced-row">
-                    <button class="control-button" aria-label="Save Data" onclick="downloadSaveData();">Save Game Data</button>
+                    <button class="control-button" aria-label="Download Save" onclick="downloadSaveData();">Download Save Data</button>
+                </div>
+                <div class="evenly-spaced-row">
+                    <button class="control-button" aria-label="Upload Save" onclick="uploadSaveData();">Upload Save Data</button>
+                    <input style="display: none;" id="save-upload" type="file" accept=".sav,.srm" name="Cartridge Ram Upload">
                 </div>
             </div>
         </div>

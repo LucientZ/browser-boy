@@ -60,6 +60,11 @@ function downloadSaveData() {
     }
 }
 
+function uploadSaveData() {
+    const input = document.getElementById("save-upload");
+    input.click();
+}
+
 /**
  * Resets all registers to their default values
  */
@@ -326,4 +331,13 @@ window.onload = () => {
     speedSlider.oninput = () => {
         Globals.iterationsPerTick = speedSlider.value;
     }
+
+    const saveDataInput = document.getElementById("save-upload");
+    saveDataInput.addEventListener("change", async () => {
+        if (typeof saveDataInput.files === "object" && saveDataInput.files.length >= 1) {
+            const file = saveDataInput.files[0];
+            Globals.cartridgeRAM = new Uint8Array(await file.arrayBuffer());
+            resetRegs();
+        }
+    });
 }

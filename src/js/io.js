@@ -739,18 +739,22 @@ class PulseWave {
      * @param {Object}             properties                   Properties that should be taken into account when playing the tone
      * @param {number | undefined} properties.frequency         Frequency the oscillator should play in Hz 
      * @param {number | undefined} properties.length            Duration in seconds. If set to 0, play forever 
+     * @param {number | undefined} properties.envelopeLength    Duration in seconds of how long the envelope will last. If set to 0, disable envelope 
      * @param {number | undefined} properties.initialVolume     Volume the envelope starts at
      * @param {number | undefined} properties.finalVolume       Volume the envelope will approach
      * @returns {PulseWave}        This object
     */
-    play({ frequency = 440, length = 0, initialVolume = 0.1, finalVolume = 0 }) {
+    play({ frequency = 440, length = 0, envelopeLength = 0, initialVolume = 0.1, finalVolume = 0 }) {
         this.stop();
         this._oscillator.frequency.value = frequency;
         this._gainNode.gain.setTargetAtTime(initialVolume, IOValues.audioCtx.currentTime, 0);
 
-        if (length !== 0) {
+        if (envelopeLength !== 0) {
             this._gainNode.gain.linearRampToValueAtTime(initialVolume, IOValues.audioCtx.currentTime);
-            this._gainNode.gain.linearRampToValueAtTime(finalVolume, IOValues.audioCtx.currentTime + length);
+            this._gainNode.gain.linearRampToValueAtTime(finalVolume, IOValues.audioCtx.currentTime + envelopeLength);
+        }
+
+        if (length !== 0) {
             this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime + length, 0);
         }
         return this;
@@ -825,7 +829,15 @@ function createGameboyPulseWave(dutyCycleSelect) {
     return new PulseWave(oscillator, gainNode);
 }
 
+
+/**
+ * Initializes audio channels and creates an audio context object
+ */
 function initializeAudio() {
+    if (!(window.AudioContext || window.webkitAudioContext)) {
+        alert("Your browser does not support the audio webkit API");
+        return;
+    }
     const audioToggle = document.getElementById("audio-toggle");
     IOValues.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
     audioToggle.innerText = "Mute Audio";
@@ -869,21 +881,30 @@ function doAudioUpdate() {
         {
             const channel = audioChannels[0];
             if (!channel.enabled && (Globals.HRAM[0x14] & 0x80)) {
-                const sweepPace = (Globals.HRAM[0x10] & 0x70) >> 4; // TODO implement sweep
-                const sweepDirection = (Globals.HRAM[0x10] & 0x08) >> 3;
+                // const sweepPace = (Globals.HRAM[0x10] & 0x70) >> 4; // TODO implement sweep
+                // const sweepDirection = (Globals.HRAM[0x10] & 0x08) >> 3;
+
                 const duty = (Globals.HRAM[0x11] & 0xC0) >> 6;
                 const lengthTimer = Globals.HRAM[0x11] & 0x3f;
                 const lengthEnable = (Globals.HRAM[0x14] & 0x40);
                 const periodValue = Globals.HRAM[0x13] | ((Globals.HRAM[0x14] & 0x07) << 8);
 
+                const envelopeDirection = (Globals.HRAM[0x12] & 0x08) >> 3;
+                const envelopePace = Globals.HRAM[0x12] & 0x07;
+                const initialVolume = (Globals.HRAM[0x12] & 0xF0) >> 4;
 
+                const envelopeLength = envelopePace ? Math.abs(envelopeDirection ? 0xF : 0x0 - initialVolume) * envelopePace / 64 : 0;
                 const audioFrequency = 131072 / (2048 - periodValue); // https://gbdev.io/pandocs/Audio_Registers.html#ff13--nr13-channel-1-period-low-write-only
                 const audioLength = lengthEnable ? (64 - lengthTimer) / 256 : 0; // TODO Implement sweep  // https://gbdev.io/pandocs/Audio.html#length-timer
 
                 channel.currentWave = channel.waveforms[duty];
+
                 channel.currentWave.play({
                     length: audioLength,
                     frequency: audioFrequency,
+                    initialVolume: initialVolume * 0.2 / 0xF, // Converts binary volume into real gain
+                    finalVolume: envelopeDirection ? 0.2 : 0,
+                    envelopeLength: envelopeLength,
                 });
                 channel.enabled = true;
                 setTimeout(() => {
@@ -918,12 +939,15 @@ function doAudioUpdate() {
             }
         }
 
-        // Audio Channel 3 (Pulse)
+        // Audio Channel 3 (Custom)
         {
+            const channel = audioChannels[2];
+            if (!channel.enabled) {
 
+            }
         }
 
-        // Audio Channel 4
+        // Audio Channel 4 (Noise)
         {
 
         }

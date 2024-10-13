@@ -911,16 +911,17 @@ function doAudioUpdate() {
         // Audio Channel 1 (Pulse)
         {
             const channel = audioChannels[0];
-            if (!channel.enabled && channel.waveforms) {
+            if (!channel.enabled && channel.waveforms && (Globals.HRAM[0x14] & 0x80)) {
                 const sweepPace = (Globals.HRAM[0x10] & 0x70) >> 4;
                 const sweepDirection = (Globals.HRAM[0x10] & 0x08) >> 3;
                 const duty = (Globals.HRAM[0x11] & 0xC0) >> 6;
                 const lengthTimer = Globals.HRAM[0x11] & 0x3f;
-                const periodValue = Globals.HRAM[0x13] | ((Globals.HRAM[0x14 & 0x07]) << 8);
+                const periodValue = Globals.HRAM[0x13] | ((Globals.HRAM[0x14] & 0x07) << 8);
+
 
                 const audioLength = (64 - lengthTimer) / 256;  // https://gbdev.io/pandocs/Audio.html#length-timer
                 const audioFrequency = 131072 / (2048 - periodValue);// https://gbdev.io/pandocs/Audio_Registers.html#ff13--nr13-channel-1-period-low-write-only
-
+                console.log(periodValue.toString(16));
 
                 channel.currentWave = channel.waveforms[duty];
                 channel.currentWave.play({ length: audioLength, frequency: audioFrequency });
@@ -928,12 +929,16 @@ function doAudioUpdate() {
                 setTimeout(() => {
                     channel.enabled = false;
                 }, audioLength * 1000);
+                Globals.HRAM[0x14] &= 0x7F; // Disables channel trigger
             }
         }
 
         // Audio Channel 2 (Pulse)
         {
+            const channel = audioChannels[1];
+            if (!channel.enabled && channel) {
 
+            }
         }
 
         // Audio Channel 3 (Pulse)

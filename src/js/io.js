@@ -705,6 +705,7 @@ document.addEventListener("keyup", (event) => {
  * @prop {OscillatorNode} _oscillator        Oscillator used to produce the waveform
  * @prop {GainNode}       _gainNode          Gain Node used to control volume (amplitude) of the waveform
  * @prop {number | null}  _smoothingInterval How quickly in Hz the envelope will change
+ * @prop {Function}               play
  */
 
 /**
@@ -733,6 +734,7 @@ class PulseWave {
     }
 
     /**
+     * Plays the wave with given properties
      * @param {Object}             properties                   Properties that should be taken into account when playing the tone
      * @param {number | undefined} properties.frequency         Frequency the oscillator should play in Hz 
      * @param {number | undefined} properties.length            Duration in seconds. If set to 0, play forever 
@@ -906,6 +908,42 @@ function toggleAudio() {
 function doAudioUpdate() {
     const audioMasterControl = Globals.HRAM[0x26];
     if (audioMasterControl & 0x80) {
+        // Audio Channel 1 (Pulse)
+        {
+            const channel = audioChannels[0];
+            if (!channel.enabled && channel.waveforms) {
+                const sweepPace = (Globals.HRAM[0x10] & 0x70) >> 4;
+                const sweepDirection = (Globals.HRAM[0x10] & 0x08) >> 3;
+                const duty = (Globals.HRAM[0x11] & 0xC0) >> 6;
+                const lengthTimer = Globals.HRAM[0x11] & 0x3f;
+                const periodValue = Globals.HRAM[0x13] | ((Globals.HRAM[0x14 & 0x07]) << 8);
 
+                const audioLength = (64 - lengthTimer) / 256;  // https://gbdev.io/pandocs/Audio.html#length-timer
+                const audioFrequency = 131072 / (2048 - periodValue);// https://gbdev.io/pandocs/Audio_Registers.html#ff13--nr13-channel-1-period-low-write-only
+
+
+                channel.currentWave = channel.waveforms[duty];
+                channel.currentWave.play({ length: audioLength, frequency: audioFrequency });
+                channel.enabled = true;
+                setTimeout(() => {
+                    channel.enabled = false;
+                }, audioLength * 1000);
+            }
+        }
+
+        // Audio Channel 2 (Pulse)
+        {
+
+        }
+
+        // Audio Channel 3 (Pulse)
+        {
+
+        }
+
+        // Audio Channel 4
+        {
+
+        }
     }
 }

@@ -713,9 +713,7 @@ document.addEventListener("keyup", (event) => {
  * Interface for interacting with a pulse wave
  * @type {Wave}
  */
-class PulseWave {
-    static _smoothingInterval = 64;
-
+class Wave {
     /**
      * Create a Wave object. This is an interface for interacting with a specific waveform
      * @param {OscillatorNode} _oscillator 
@@ -735,6 +733,22 @@ class PulseWave {
     }
 
     /**
+     * Stops the wave from playing earlier than specified
+     * @returns {PulseWave}      This object
+    */
+    stop() {
+        this._gainNode.gain.cancelScheduledValues(IOValues.audioCtx.currentTime);
+        this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime, 0);
+        return this;
+    }
+}
+
+/**
+ * Interface for interacting with a pulse wave
+ * @type {Wave}
+ */
+class PulseWave extends Wave {
+    /**
      * Plays the wave with given properties
      * @param {Object}             properties                   Properties that should be taken into account when playing the tone
      * @param {number | undefined} properties.frequency         Frequency the oscillator should play in Hz 
@@ -744,7 +758,7 @@ class PulseWave {
      * @param {number | undefined} properties.finalVolume       Volume the envelope will approach
      * @returns {PulseWave}        This object
     */
-    play({ frequency = 440, length = 0, envelopeLength = 0, initialVolume = 0.1, finalVolume = 0 }) {
+    play({ frequency = 440, length = 0, periodSweepLength, envelopeLength = 0, initialVolume = 0.1, finalVolume = 0 }) {
         this.stop();
         this._oscillator.frequency.value = frequency;
         this._gainNode.gain.setTargetAtTime(initialVolume, IOValues.audioCtx.currentTime, 0);
@@ -759,14 +773,42 @@ class PulseWave {
         }
         return this;
     }
+}
 
+/**
+ * Interface for interacting with a custom wave
+ * @type {Wave}
+ */
+class CustomWave extends Wave {
     /**
-     * Stops the wave from playing earlier than specified
-     * @returns {PulseWave}      This object
+     * 
+     * @param   {Object}            properties
+     * @param   {Object}            properties.frequency
+     * @returns {CustomWave}        This object
+     */
+    play({ frequency, length, volume }) {
+        this.stop();
+        return this;
+    }
+}
+
+/**
+ * Interface for interacting with a noise wave
+ * @type {Wave}
+ */
+class NoiseWave extends Wave {
+    /**
+     * Plays the noise wave with given properties
+     * @param {Object}             properties                   Properties that should be taken into account when playing the tone
+     * @param {number | undefined} properties.frequency         Frequency the oscillator should play in Hz 
+     * @param {number | undefined} properties.length            Duration in seconds. If set to 0, play forever 
+     * @param {number | undefined} properties.envelopeLength    Duration in seconds of how long the envelope will last. If set to 0, disable envelope 
+     * @param {number | undefined} properties.initialVolume     Volume the envelope starts at
+     * @param {number | undefined} properties.finalVolume       Volume the envelope will approach
+     * @returns {PulseWave}        This object
     */
-    stop() {
-        this._gainNode.gain.cancelScheduledValues(IOValues.audioCtx.currentTime);
-        this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime, 0);
+    play({ frequency, length, envelopeLength = 0, initialVolume = 0.1, finalVolume = 0 }) {
+        this.stop();
         return this;
     }
 }
@@ -827,6 +869,34 @@ function createGameboyPulseWave(dutyCycleSelect) {
     oscillator.connect(gainNode);
 
     return new PulseWave(oscillator, gainNode);
+}
+
+/**
+ * 
+ * @param {Array<number>} samples 
+ * @returns 
+ */
+function createGameboyCustomWave(samples) {
+    if (!IOValues.audioCtx) {
+        return null;
+    }
+
+    const oscillator = IOValues.audioCtx.createOscillator();
+    
+    const real = new Float32Array(IOValues.audioCtx.sampleRate / 2);
+    const imaginary = new Float32Array(IOValues.audioCtx.sampleRate / 2);
+
+    real[0] = 0;
+    imaginary[0] = 0;
+
+    oscillator.setPeriodicWave(IOValues.audioCtx.createPeriodicWave(real, imaginary));
+
+    // Create volume controller
+    const gainNode = IOValues.audioCtx.createGain();
+    gainNode.connect(IOValues.audioCtx.destination);
+    oscillator.connect(gainNode);
+
+    return new CustomWave(oscillator, gainNode);
 }
 
 

@@ -895,7 +895,7 @@ function doAudioUpdate() {
 
                 const envelopeLength = envelopePace ? Math.abs(envelopeDirection ? 0xF : 0x0 - initialVolume) * envelopePace / 64 : 0;
                 const audioFrequency = 131072 / (2048 - periodValue); // https://gbdev.io/pandocs/Audio_Registers.html#ff13--nr13-channel-1-period-low-write-only
-                const audioLength = lengthEnable ? (64 - lengthTimer) / 256 : 0; // TODO Implement sweep  // https://gbdev.io/pandocs/Audio.html#length-timer
+                const audioLength = lengthEnable ? (64 - lengthTimer) / 256 : 0; // https://gbdev.io/pandocs/Audio.html#length-timer
 
                 channel.currentWave = channel.waveforms[duty];
 
@@ -923,6 +923,11 @@ function doAudioUpdate() {
                 const lengthEnable = (Globals.HRAM[0x19] & 0x40);
                 const periodValue = Globals.HRAM[0x18] | ((Globals.HRAM[0x19] & 0x07) << 8);
 
+                const envelopeDirection = (Globals.HRAM[0x17] & 0x08) >> 3;
+                const envelopePace = Globals.HRAM[0x17] & 0x07;
+                const initialVolume = (Globals.HRAM[0x17] & 0xF0) >> 4;
+
+                const envelopeLength = envelopePace ? Math.abs(envelopeDirection ? 0xF : 0x0 - initialVolume) * envelopePace / 64 : 0;
                 const audioFrequency = 131072 / (2048 - periodValue); // https://gbdev.io/pandocs/Audio_Registers.html#ff13--nr13-channel-1-period-low-write-only
                 const audioLength = lengthEnable ? (64 - lengthTimer) / 256 : 0;
 
@@ -930,6 +935,9 @@ function doAudioUpdate() {
                 channel.currentWave.play({
                     length: audioLength,
                     frequency: audioFrequency,
+                    initialVolume: initialVolume * 0.2 / 0xF, // Converts binary volume into real gain
+                    finalVolume: envelopeDirection ? 0.2 : 0,
+                    envelopeLength: envelopeLength,
                 });
                 channel.enabled = true;
                 setTimeout(() => {

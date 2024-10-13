@@ -878,7 +878,7 @@ function doAudioUpdate() {
 
 
                 const audioFrequency = 131072 / (2048 - periodValue); // https://gbdev.io/pandocs/Audio_Registers.html#ff13--nr13-channel-1-period-low-write-only
-                const audioLength = lengthEnable ? (64 - lengthTimer) / 256 : 0.2; // TODO Implement sweep  // https://gbdev.io/pandocs/Audio.html#length-timer
+                const audioLength = lengthEnable ? (64 - lengthTimer) / 256 : 0; // TODO Implement sweep  // https://gbdev.io/pandocs/Audio.html#length-timer
 
                 channel.currentWave = channel.waveforms[duty];
                 channel.currentWave.play({
@@ -898,11 +898,12 @@ function doAudioUpdate() {
             const channel = audioChannels[1];
             if (!channel.enabled && (Globals.HRAM[0x19] & 0x80)) {
                 const duty = (Globals.HRAM[0x16] & 0xC0) >> 6;
-                const lengthTimer = Globals.HRAM[16] & 0x3F;
+                const lengthTimer = Globals.HRAM[0x16] & 0x3F;
+                const lengthEnable = (Globals.HRAM[0x19] & 0x40);
                 const periodValue = Globals.HRAM[0x18] | ((Globals.HRAM[0x19] & 0x07) << 8);
 
                 const audioFrequency = 131072 / (2048 - periodValue); // https://gbdev.io/pandocs/Audio_Registers.html#ff13--nr13-channel-1-period-low-write-only
-                const audioLength = (64 - lengthTimer) / 256;
+                const audioLength = lengthEnable ? (64 - lengthTimer) / 256 : 0;
 
                 channel.currentWave = channel.waveforms[duty];
                 channel.currentWave.play({

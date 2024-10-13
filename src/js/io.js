@@ -705,7 +705,8 @@ document.addEventListener("keyup", (event) => {
  * @prop {OscillatorNode} _oscillator        Oscillator used to produce the waveform
  * @prop {GainNode}       _gainNode          Gain Node used to control volume (amplitude) of the waveform
  * @prop {number | null}  _smoothingInterval How quickly in Hz the envelope will change
- * @prop {Function}               play
+ * @prop {Function}       play               Plays the current wave with given parameters (depends on the channel)
+ * @prop {Function}       stop               Stops the current wave from playing
  */
 
 /**

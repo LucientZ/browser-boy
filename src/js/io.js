@@ -824,50 +824,6 @@ function createGameboyPulseWave(dutyCycleSelect) {
     return new PulseWave(oscillator, gainNode);
 }
 
-/**
- * @typedef AudioChannel
- * @prop {"pulse" | "wave" | "noise"} type        What type of channel this is. This defines what type
- * @prop {boolean}                    enabled     Whether the channel is currently enabled
- * @prop {number}                     dutyCycle   2-bit value that determines the type of pulse wave emitted by pulse wave channels 
- * @prop {number}                     volume      Volume of the channel
- * @prop {number | undefined}         lfsr        Linear feedback shift register used for pseudo-random noise
- * @prop {Array<Wave> | null}         waveforms   Collection of waves that the channel can play
- * @prop {Wave | null}                currentWave Current wave that the channel is playing
- */
-
-/** @type {Array<AudioChannel>} */
-const audioChannels = [
-    {
-        type: "pulse",
-        enabled: false,
-        dutyCycle: 0,
-        volume: 0.3,
-        waveforms: null,
-    },
-    {
-        type: "pulse",
-        enabled: false,
-        dutyCycle: 0,
-        volume: 0.3,
-        waveforms: null,
-    },
-    {
-        type: "wave",
-        enabled: false,
-        dutyCycle: 0,
-        volume: 0.3,
-        waveforms: null,
-    },
-    {
-        type: "noise",
-        enabled: false,
-        dutyCycle: 0,
-        volume: 0.3,
-        lfsr: 0x76, // Could be any 15 bit number
-        waveforms: null,
-    },
-];
-
 function initializeAudio() {
     const audioToggle = document.getElementById("audio-toggle");
     IOValues.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -907,11 +863,11 @@ function toggleAudio() {
 
 function doAudioUpdate() {
     const audioMasterControl = Globals.HRAM[0x26];
-    if (audioMasterControl & 0x80) {
+    if (audioMasterControl & 0x80 && IOValues.audioCtx) {
         // Audio Channel 1 (Pulse)
         {
             const channel = audioChannels[0];
-            if (!channel.enabled && channel.waveforms && (Globals.HRAM[0x14] & 0x80)) {
+            if (!channel.enabled && (Globals.HRAM[0x14] & 0x80)) {
                 const sweepPace = (Globals.HRAM[0x10] & 0x70) >> 4; // TODO implement sweep
                 const sweepDirection = (Globals.HRAM[0x10] & 0x08) >> 3;
                 const duty = (Globals.HRAM[0x11] & 0xC0) >> 6;
@@ -939,14 +895,13 @@ function doAudioUpdate() {
         // Audio Channel 2 (Pulse)
         {
             const channel = audioChannels[1];
-            if (!channel.enabled && channel && (Globals.HRAM[0x19] & 0x80)) {
+            if (!channel.enabled && (Globals.HRAM[0x19] & 0x80)) {
                 const duty = (Globals.HRAM[0x16] & 0xC0) >> 6;
                 const lengthTimer = Globals.HRAM[16] & 0x3F;
                 const periodValue = Globals.HRAM[0x18] | ((Globals.HRAM[0x19] & 0x07) << 8);
 
                 const audioFrequency = 131072 / (2048 - periodValue); // https://gbdev.io/pandocs/Audio_Registers.html#ff13--nr13-channel-1-period-low-write-only
                 const audioLength = (64 - lengthTimer) / 256;
-                console.log(audioFrequency);
 
                 channel.currentWave = channel.waveforms[duty];
                 channel.currentWave.play({

@@ -107,3 +107,48 @@ const Globals = {
 Object.preventExtensions(BYTE_VALUES);
 Object.preventExtensions(ROMHeaderAddresses);
 Object.preventExtensions(Globals);
+
+
+/**
+ * @typedef AudioChannel
+ * @prop {"pulse" | "wave" | "noise"} type        What type of channel this is. This defines what type
+ * @prop {boolean}                    enabled     Whether the channel is currently enabled
+ * @prop {number}                     dutyCycle   2-bit value that determines the type of pulse wave emitted by pulse wave channels 
+ * @prop {number}                     volume      Volume of the channel
+ * @prop {number | undefined}         lfsr        Linear feedback shift register used for pseudo-random noise
+ * @prop {Array<Wave> | null}         waveforms   Collection of waves that the channel can play
+ * @prop {Wave | null}                currentWave Current wave that the channel is playing
+ */
+
+/** @type {Array<AudioChannel>} */
+const audioChannels = [
+    {
+        type: "pulse",
+        enabled: false,
+        dutyCycle: 0,
+        volume: 0.3,
+        waveforms: null,
+    },
+    {
+        type: "pulse",
+        enabled: false,
+        dutyCycle: 0,
+        volume: 0.3,
+        waveforms: null,
+    },
+    {
+        type: "wave",
+        enabled: false,
+        dutyCycle: 0,
+        volume: 0.3,
+        waveforms: null,
+    },
+    {
+        type: "noise",
+        enabled: false,
+        dutyCycle: 0,
+        volume: 0.3,
+        lfsr: 0x76, // Could be any 15 bit number
+        waveforms: null,
+    },
+];

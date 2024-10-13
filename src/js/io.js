@@ -912,19 +912,22 @@ function doAudioUpdate() {
         {
             const channel = audioChannels[0];
             if (!channel.enabled && channel.waveforms && (Globals.HRAM[0x14] & 0x80)) {
-                const sweepPace = (Globals.HRAM[0x10] & 0x70) >> 4;
+                const sweepPace = (Globals.HRAM[0x10] & 0x70) >> 4; // TODO implement sweep
                 const sweepDirection = (Globals.HRAM[0x10] & 0x08) >> 3;
                 const duty = (Globals.HRAM[0x11] & 0xC0) >> 6;
                 const lengthTimer = Globals.HRAM[0x11] & 0x3f;
+                const lengthEnable = (Globals.HRAM[0x14] & 0x40);
                 const periodValue = Globals.HRAM[0x13] | ((Globals.HRAM[0x14] & 0x07) << 8);
 
 
-                const audioLength = (64 - lengthTimer) / 256;  // https://gbdev.io/pandocs/Audio.html#length-timer
-                const audioFrequency = 131072 / (2048 - periodValue);// https://gbdev.io/pandocs/Audio_Registers.html#ff13--nr13-channel-1-period-low-write-only
-                console.log(periodValue.toString(16));
+                const audioFrequency = 131072 / (2048 - periodValue); // https://gbdev.io/pandocs/Audio_Registers.html#ff13--nr13-channel-1-period-low-write-only
+                const audioLength = lengthEnable ? (64 - lengthTimer) / 256 : 0.2; // TODO Implement sweep  // https://gbdev.io/pandocs/Audio.html#length-timer
 
                 channel.currentWave = channel.waveforms[duty];
-                channel.currentWave.play({ length: audioLength, frequency: audioFrequency });
+                channel.currentWave.play({
+                    length: audioLength,
+                    frequency: audioFrequency,
+                });
                 channel.enabled = true;
                 setTimeout(() => {
                     channel.enabled = false;
@@ -936,8 +939,25 @@ function doAudioUpdate() {
         // Audio Channel 2 (Pulse)
         {
             const channel = audioChannels[1];
-            if (!channel.enabled && channel) {
+            if (!channel.enabled && channel && (Globals.HRAM[0x19] & 0x80)) {
+                const duty = (Globals.HRAM[0x16] & 0xC0) >> 6;
+                const lengthTimer = Globals.HRAM[16] & 0x3F;
+                const periodValue = Globals.HRAM[0x18] | ((Globals.HRAM[0x19] & 0x07) << 8);
 
+                const audioFrequency = 131072 / (2048 - periodValue); // https://gbdev.io/pandocs/Audio_Registers.html#ff13--nr13-channel-1-period-low-write-only
+                const audioLength = (64 - lengthTimer) / 256;
+                console.log(audioFrequency);
+
+                channel.currentWave = channel.waveforms[duty];
+                channel.currentWave.play({
+                    length: audioLength,
+                    frequency: audioFrequency,
+                });
+                channel.enabled = true;
+                setTimeout(() => {
+                    channel.enabled = false;
+                }, audioLength * 1000);
+                Globals.HRAM[0x19] &= 0x7F; // Disables channel trigger
             }
         }
 

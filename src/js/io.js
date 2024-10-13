@@ -262,7 +262,7 @@ function drawLCDLine(line) {
                         color = pixel;
                     }
 
-                    const priority = Globals.metadata.supportsColor ? ((tileAttributes & 0x80) !== 0 || (IORegisters.LCDC & 0x01)) && pixel !== 0 : true;
+                    const priority = Globals.metadata.supportsColor ? ((tileAttributes & 0x80) !== 0 || (IORegisters.LCDC & 0x01)) : true;
                     renderPixel((IORegisters.WX - 7) + i * 8 + j, line, color, priority, false, palette);
                 }
 
@@ -589,7 +589,7 @@ function doHDMATransfer() {
 
 function doTimerUpdate() {
     IORegisters.divider = Globals.cycleNumber & 0xFF;
-    
+
     // Return if timer isn't enabled
     if (!(IORegisters.timerControl & 0x04)) {
         return;

@@ -700,6 +700,66 @@ document.addEventListener("keyup", (event) => {
 
 /////////////////////// Audio Stuff ///////////////////////
 
+/**
+ * 
+ * @param {number} frequency 
+ * @param {number} dutyCycle 2 bits indicating the specific duty cyle (See table below)
+ * 
+ * |Value|Duty Cycle|
+ * |:----|:---------|
+ * |00   |12.5%     |
+ * |01   |25%       |
+ * |10   |50%       |
+ * |11   |75%       |
+ */
+function createGameboyPulseWaveOscillator(frequency, dutyCycle) {
+
+}
+
+/**
+ * @typedef AudioChannel
+ * @prop {"pulse" | "wave" | "noise"} type       What type of channel this is. This defines what type
+ * @prop {boolean}                    enabled    Whether the channel is currently enabled
+ * @prop {number}                     dutyCycle  The ratio of how often the oscillator is high vs low 
+ * @prop {number}                     volume     Volume of the channel
+ * @prop {number | undefined}         lfsr       Linear feedback shift register used for pseudo-random noise
+ * @prop {OscillatorNode | null}      oscillator Oscillator object used in producing sound     
+ */
+
+/** @type {Array<AudioChannel>} */
+const audioChannels = [
+    {
+        type: "pulse",
+        enabled: false,
+        dutyCycle: 0,
+        volume: 0.3,
+        oscillator: null,
+    },
+    {
+        type: "pulse",
+        enabled: false,
+        dutyCycle: 0,
+        volume: 0.3,
+        oscillator: null,
+    },
+    {
+        type: "wave",
+        enabled: false,
+        dutyCycle: 0,
+        volume: 0.3,
+        oscillator: null,
+    },
+    {
+        type: "noise",
+        enabled: false,
+        dutyCycle: 0,
+        volume: 0.3,
+        lfsr: 0x76, // Could be any 15 bit number
+        oscillator: null,
+    },
+];
+
+
 function toggleAudio() {
     const audioToggle = document.getElementById("audio-toggle");
     if (IOValues.audioCtx) {
@@ -712,28 +772,9 @@ function toggleAudio() {
     }
 }
 
-/**
- * Plays a simple square wave for a set duration
- * @param {number} frequency Frequency of the square wave 
- * @param {number} start     How long in seconds until the square wave begins playing
- * @param {number} duration  How long in seconds the square wave will play
- * @param {number} gain      How loud the wave is
- */
-function playSquareWave(frequency, start, duration, gain = 0.3) {
-    if (!IOValues.audioCtx) {
-        return;
+function doAudioUpdate() {
+    const audioMasterControl = Globals.HRAM[0x26];
+    if (audioMasterControl & 0x80) {
+
     }
-    console.log(frequency, start, duration, gain);
-    const oscillator = IOValues.audioCtx.createOscillator();
-    const gainNode = IOValues.audioCtx.createGain();
-
-    oscillator.connect(gainNode);
-    oscillator.frequency.value = frequency;
-    oscillator.type = "square";
-
-    gainNode.connect(IOValues.audioCtx.destination);
-    gainNode.gain.value = gain;
-
-    oscillator.start(start);
-    oscillator.stop(duration);
 }

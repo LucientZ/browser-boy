@@ -701,9 +701,58 @@ document.addEventListener("keyup", (event) => {
 /////////////////////// Audio Stuff ///////////////////////
 
 /**
+ * @typedef Wave
+ * @prop {OscillatorNode} _oscillator        Oscillator used to produce the waveform
+ * @prop {GainNode}       _gainNode          Gain Node used to control volume (amplitude) of the waveform
+ * @prop {number | null}  _smoothingInterval How quickly in Hz the envelope will change
+ */
+
+/**
+ * Interface for interacting with a pulse wave
+ * @type {Wave}
+ */
+class PulseWave {
+    static _smoothingInterval = 64;
+
+    /**
+     * Create a Wave object. This is an interface for interacting with a specific waveform
+     * @param {OscillatorNode} _oscillator 
+     * @param {GainNode}       _gainNode 
+     */
+    constructor(oscillator, gainNode) {
+        if (!oscillator || typeof oscillator !== "object") {
+            throw new TypeError(`oscillator must be of type OscillatorNode instead got ${oscillator ? typeof oscillator : oscillator}`);
+        }
+        if (!gainNode || typeof gainNode !== "object") {
+            throw new TypeError(`gainNode must be of type GainNode instead got ${oscillator ? typeof oscillator : oscillator}`);
+        }
+        this._oscillator = oscillator;
+        this._gainNode = gainNode;
+        this._gainNode.gain.value = 0;
+        this._oscillator.start();
+    }
+
+    /**
+     * 
+     * @param {number}           frequency         Frequency the oscillator should play in Hz 
+     * @param {number}           length            Duration in seconds 
+     * @param {number}           initialVolume     Max volume
+     * @param {number | boolean} envelopeDirection 1-bit representing if the wave will get louder or quieter
+     * @param {number}           sweepPace         How many seconds until the target is reached
+     */
+    play(frequency = 440, length = 1, initialVolume = 0.1, envelopeDirection = 0, sweepPace = 0) {
+        this._oscillator.frequency.value = frequency;
+        this._gainNode.gain.setTargetAtTime(initialVolume, IOValues.audioCtx.currentTime, 0);
+        this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime + length, 0);
+    }
+}
+
+/**
+ * Creates an oscillator object for a pulse wave with given specifications
+ * https://youtu.be/pz7klCW3dYQ?si=JhUL-LCBKb3oYzG9&t=1888
  * 
- * @param {number} frequency 
- * @param {number} dutyCycle 2 bits indicating the specific duty cyle (See table below)
+ * @param {number}             dutyCycleSelect 2 bits indicating the specific duty cyle (See table below)
+ * @returns {PulseWave | null} PulseWave object if the audio context has been created. Null if it hasn't
  * 
  * |Value|Duty Cycle|
  * |:----|:---------|
@@ -712,18 +761,58 @@ document.addEventListener("keyup", (event) => {
  * |10   |50%       |
  * |11   |75%       |
  */
-function createGameboyPulseWaveOscillator(frequency, dutyCycle) {
+function createGameboyPulseWave(dutyCycleSelect) {
+    if (!IOValues.audioCtx) {
+        return null;
+    }
 
+    let dutyCycle = 0.5;
+    switch (dutyCycleSelect) {
+        case 0b00:
+            dutyCycle = 0.125;
+            break;
+        case 0b01:
+            dutyCycle = 0.25;
+            break;
+        case 0b10:
+            dutyCycle = 0.50;
+            break;
+        case 0b11:
+            dutyCycle = 0.75;
+            break;
+    }
+
+    // Create waveform with a fourier transform
+    const oscillator = IOValues.audioCtx.createOscillator();
+    
+    const maxFrequency = 1000; // Highest *reasonable* frequency in Hz
+    const maxCoefficient = IOValues.audioCtx.sampleRate / (2 * maxFrequency); // Highest *reasonable* value that a coefficient can have before fourier series breaks down
+    const real = new Float32Array(IOValues.audioCtx.sampleRate / 2);
+    const imaginary = new Float32Array(IOValues.audioCtx.sampleRate / 2);
+    real[0] = 0;
+    imaginary[0] = 0;
+    for (let i = 1; i < maxCoefficient; i++) {
+        real[i] = 2 * Math.sin(i * Math.PI * dutyCycle) / (i * Math.PI);
+    }
+
+    oscillator.setPeriodicWave(IOValues.audioCtx.createPeriodicWave(real, imaginary));
+
+    // Create volume controller
+    const gainNode = IOValues.audioCtx.createGain();
+    gainNode.connect(IOValues.audioCtx.destination);
+    oscillator.connect(gainNode);
+
+    return new PulseWave(oscillator, gainNode);
 }
 
 /**
  * @typedef AudioChannel
  * @prop {"pulse" | "wave" | "noise"} type       What type of channel this is. This defines what type
  * @prop {boolean}                    enabled    Whether the channel is currently enabled
- * @prop {number}                     dutyCycle  The ratio of how often the oscillator is high vs low 
+ * @prop {number}                     dutyCycle  2-bit value that determines the type of pulse wave emitted by pulse wave channels 
  * @prop {number}                     volume     Volume of the channel
  * @prop {number | undefined}         lfsr       Linear feedback shift register used for pseudo-random noise
- * @prop {OscillatorNode | null}      oscillator Oscillator object used in producing sound     
+ * @prop {Wave | null}                Wave       Current wave that the channel is playing
  */
 
 /** @type {Array<AudioChannel>} */
@@ -733,21 +822,18 @@ const audioChannels = [
         enabled: false,
         dutyCycle: 0,
         volume: 0.3,
-        oscillator: null,
     },
     {
         type: "pulse",
         enabled: false,
         dutyCycle: 0,
         volume: 0.3,
-        oscillator: null,
     },
     {
         type: "wave",
         enabled: false,
         dutyCycle: 0,
         volume: 0.3,
-        oscillator: null,
     },
     {
         type: "noise",
@@ -755,16 +841,28 @@ const audioChannels = [
         dutyCycle: 0,
         volume: 0.3,
         lfsr: 0x76, // Could be any 15 bit number
-        oscillator: null,
     },
 ];
 
 
+/**
+ * Toggles whether or not the audio is playing
+ */
 function toggleAudio() {
     const audioToggle = document.getElementById("audio-toggle");
     if (IOValues.audioCtx) {
-        IOValues.audioCtx = null;
-        audioToggle.innerText = "Unmute Audio";
+        if (IOValues.audioCtx.state === "running") {
+            IOValues.audioCtx.suspend();
+            audioToggle.innerText = "Unmute Audio";
+        }
+        else if (IOValues.audioCtx.state === "suspended") {
+            IOValues.audioCtx.resume();
+            audioToggle.innerText = "Mute Audio";
+        }
+        else {
+            IOValues.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            audioToggle.innerText = "Mute Audio";
+        }
     }
     else {
         IOValues.audioCtx = new (window.AudioContext || window.webkitAudioContext)();

@@ -16,7 +16,7 @@ async function dropHandler(event) {
     if (event.dataTransfer.items) {
         for (const item of event.dataTransfer.items) {
             const file = item.getAsFile();
-            if (file !== null && file.type === "") {
+            if (file !== null) {
                 Globals.ROM = new Uint8Array(await file.arrayBuffer());
                 Globals.metadata.filename = file.name;
             }

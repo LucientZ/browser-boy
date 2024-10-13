@@ -733,17 +733,34 @@ class PulseWave {
     }
 
     /**
-     * 
-     * @param {number}           frequency         Frequency the oscillator should play in Hz 
-     * @param {number}           length            Duration in seconds 
-     * @param {number}           initialVolume     Max volume
-     * @param {number | boolean} envelopeDirection 1-bit representing if the wave will get louder or quieter
-     * @param {number}           sweepPace         How many seconds until the target is reached
-     */
-    play(frequency = 440, length = 1, initialVolume = 0.1, envelopeDirection = 0, sweepPace = 0) {
+     * @param {Object}             properties                   Properties that should be taken into account when playing the tone
+     * @param {number | undefined} properties.frequency         Frequency the oscillator should play in Hz 
+     * @param {number | undefined} properties.length            Duration in seconds. If set to 0, play forever 
+     * @param {number | undefined} properties.initialVolume     Volume the envelope starts at
+     * @param {number | undefined} properties.finalVolume       Volume the envelope will approach
+     * @returns {PulseWave}        This object
+    */
+    play({ frequency = 440, length = 0, initialVolume = 0.1, finalVolume = 0 }) {
+        this.stop();
         this._oscillator.frequency.value = frequency;
         this._gainNode.gain.setTargetAtTime(initialVolume, IOValues.audioCtx.currentTime, 0);
-        this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime + length, 0);
+
+        if (length !== 0) {
+            this._gainNode.gain.linearRampToValueAtTime(initialVolume, IOValues.audioCtx.currentTime);
+            this._gainNode.gain.linearRampToValueAtTime(finalVolume, IOValues.audioCtx.currentTime + length);
+            this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime + length, 0);
+        }
+        return this;
+    }
+
+    /**
+     * Stops the wave from playing earlier than specified
+     * @returns {PulseWave}      This object
+    */
+    stop() {
+        this._gainNode.gain.cancelScheduledValues(IOValues.audioCtx.currentTime);
+        this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime, 0);
+        return this;
     }
 }
 
@@ -784,7 +801,7 @@ function createGameboyPulseWave(dutyCycleSelect) {
 
     // Create waveform with a fourier transform
     const oscillator = IOValues.audioCtx.createOscillator();
-    
+
     const maxFrequency = 1000; // Highest *reasonable* frequency in Hz
     const maxCoefficient = IOValues.audioCtx.sampleRate / (2 * maxFrequency); // Highest *reasonable* value that a coefficient can have before fourier series breaks down
     const real = new Float32Array(IOValues.audioCtx.sampleRate / 2);

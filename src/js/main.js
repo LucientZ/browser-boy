@@ -21,7 +21,7 @@ async function dropHandler(event) {
                 Globals.metadata.filename = file.name;
             }
             else {
-                alert("Invalid ROM");
+                alert(`Invalid ROM got ${file} instead`);
             }
         }
     }

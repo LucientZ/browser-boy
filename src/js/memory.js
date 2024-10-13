@@ -265,6 +265,18 @@ function writeIO(addr, val) {
         case 0x07:
             IORegisters.timerControl = val;
             return;
+        case 0x14:
+            if (audioChannels[0].currentWave) {
+                audioChannels[0].currentWave.stop();
+            }
+            audioChannels[0].enabled = false;
+            break;
+        case 0x19:
+            if (audioChannels[1].currentWave) {
+                audioChannels[1].currentWave.stop();
+            }
+            audioChannels[1].enabled = false;
+            break;
         case 0x0F:
             IORegisters.IF = val;
             return;

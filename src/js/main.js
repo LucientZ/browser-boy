@@ -294,6 +294,7 @@ function parseROM(rom) {
 function doProgramIteration() {
     doLCDUpdate();
     doTimerUpdate();
+    doAudioUpdate();
     handleInterrupts();
     if (!Globals.standby) {
         doNext8BitInstruction();

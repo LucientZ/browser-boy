@@ -697,3 +697,337 @@ document.addEventListener("keyup", (event) => {
         IOValues.selectPressed = false;
     }
 });
+
+/////////////////////// Audio Stuff ///////////////////////
+
+/**
+ * @typedef Wave
+ * @prop {OscillatorNode} _oscillator        Oscillator used to produce the waveform
+ * @prop {GainNode}       _gainNode          Gain Node used to control volume (amplitude) of the waveform
+ * @prop {number | null}  _smoothingInterval How quickly in Hz the envelope will change
+ * @prop {Function}       play               Plays the current wave with given parameters (depends on the channel)
+ * @prop {Function}       stop               Stops the current wave from playing
+ */
+
+/**
+ * Interface for interacting with a pulse wave
+ * @type {Wave}
+ */
+class Wave {
+    /**
+     * Create a Wave object. This is an interface for interacting with a specific waveform
+     * @param {OscillatorNode} _oscillator 
+     * @param {GainNode}       _gainNode 
+     */
+    constructor(oscillator, gainNode) {
+        if (!oscillator || typeof oscillator !== "object") {
+            throw new TypeError(`oscillator must be of type OscillatorNode instead got ${oscillator ? typeof oscillator : oscillator}`);
+        }
+        if (!gainNode || typeof gainNode !== "object") {
+            throw new TypeError(`gainNode must be of type GainNode instead got ${oscillator ? typeof oscillator : oscillator}`);
+        }
+        this._oscillator = oscillator;
+        this._gainNode = gainNode;
+        this._gainNode.gain.value = 0;
+        this._oscillator.start();
+    }
+
+    /**
+     * Stops the wave from playing earlier than specified
+     * @returns {PulseWave}      This object
+    */
+    stop() {
+        this._gainNode.gain.cancelScheduledValues(IOValues.audioCtx.currentTime);
+        this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime, 0);
+        return this;
+    }
+}
+
+/**
+ * Interface for interacting with a pulse wave
+ * @type {Wave}
+ */
+class PulseWave extends Wave {
+    /**
+     * Plays the wave with given properties
+     * @param {Object}             properties                   Properties that should be taken into account when playing the tone
+     * @param {number | undefined} properties.frequency         Frequency the oscillator should play in Hz 
+     * @param {number | undefined} properties.length            Duration in seconds. If set to 0, play forever 
+     * @param {number | undefined} properties.envelopeLength    Duration in seconds of how long the envelope will last. If set to 0, disable envelope 
+     * @param {number | undefined} properties.initialVolume     Volume the envelope starts at
+     * @param {number | undefined} properties.finalVolume       Volume the envelope will approach
+     * @returns {PulseWave}        This object
+    */
+    play({ frequency = 440, length = 0, periodSweepLength, envelopeLength = 0, initialVolume = 0.1, finalVolume = 0 }) {
+        this.stop();
+        this._oscillator.frequency.value = frequency;
+        this._gainNode.gain.setTargetAtTime(initialVolume, IOValues.audioCtx.currentTime, 0);
+
+        if (envelopeLength !== 0) {
+            this._gainNode.gain.linearRampToValueAtTime(initialVolume, IOValues.audioCtx.currentTime);
+            this._gainNode.gain.linearRampToValueAtTime(finalVolume, IOValues.audioCtx.currentTime + envelopeLength);
+        }
+
+        if (length !== 0) {
+            this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime + length, 0);
+        }
+        return this;
+    }
+}
+
+/**
+ * Interface for interacting with a custom wave
+ * @type {Wave}
+ */
+class CustomWave extends Wave {
+    /**
+     * 
+     * @param   {Object}            properties
+     * @param   {Object}            properties.frequency
+     * @returns {CustomWave}        This object
+     */
+    play({ frequency, length, volume }) {
+        this.stop();
+        return this;
+    }
+}
+
+/**
+ * Interface for interacting with a noise wave
+ * @type {Wave}
+ */
+class NoiseWave extends Wave {
+    /**
+     * Plays the noise wave with given properties
+     * @param {Object}             properties                   Properties that should be taken into account when playing the tone
+     * @param {number | undefined} properties.frequency         Frequency the oscillator should play in Hz 
+     * @param {number | undefined} properties.length            Duration in seconds. If set to 0, play forever 
+     * @param {number | undefined} properties.envelopeLength    Duration in seconds of how long the envelope will last. If set to 0, disable envelope 
+     * @param {number | undefined} properties.initialVolume     Volume the envelope starts at
+     * @param {number | undefined} properties.finalVolume       Volume the envelope will approach
+     * @returns {PulseWave}        This object
+    */
+    play({ frequency, length, envelopeLength = 0, initialVolume = 0.1, finalVolume = 0 }) {
+        this.stop();
+        return this;
+    }
+}
+
+/**
+ * Creates an oscillator object for a pulse wave with given specifications
+ * https://youtu.be/pz7klCW3dYQ?si=JhUL-LCBKb3oYzG9&t=1888
+ * 
+ * @param {number}             dutyCycleSelect 2 bits indicating the specific duty cyle (See table below)
+ * @returns {PulseWave | null} PulseWave object if the audio context has been created. Null if it hasn't
+ * 
+ * |Value|Duty Cycle|
+ * |:----|:---------|
+ * |00   |12.5%     |
+ * |01   |25%       |
+ * |10   |50%       |
+ * |11   |75%       |
+ */
+function createGameboyPulseWave(dutyCycleSelect) {
+    if (!IOValues.audioCtx) {
+        return null;
+    }
+
+    let dutyCycle = 0.5;
+    switch (dutyCycleSelect) {
+        case 0b00:
+            dutyCycle = 0.125;
+            break;
+        case 0b01:
+            dutyCycle = 0.25;
+            break;
+        case 0b10:
+            dutyCycle = 0.50;
+            break;
+        case 0b11:
+            dutyCycle = 0.75;
+            break;
+    }
+
+    // Create waveform with a fourier transform
+    const oscillator = IOValues.audioCtx.createOscillator();
+
+    const maxFrequency = 1000; // Highest *reasonable* frequency in Hz
+    const maxCoefficient = IOValues.audioCtx.sampleRate / (2 * maxFrequency); // Highest *reasonable* value that a coefficient can have before fourier series breaks down
+    const real = new Float32Array(IOValues.audioCtx.sampleRate / 2);
+    const imaginary = new Float32Array(IOValues.audioCtx.sampleRate / 2);
+    real[0] = 0;
+    imaginary[0] = 0;
+    for (let i = 1; i < maxCoefficient; i++) {
+        real[i] = 2 * Math.sin(i * Math.PI * dutyCycle) / (i * Math.PI);
+    }
+
+    oscillator.setPeriodicWave(IOValues.audioCtx.createPeriodicWave(real, imaginary));
+
+    // Create volume controller
+    const gainNode = IOValues.audioCtx.createGain();
+    gainNode.connect(IOValues.audioCtx.destination);
+    oscillator.connect(gainNode);
+
+    return new PulseWave(oscillator, gainNode);
+}
+
+/**
+ * 
+ * @param {Array<number>} samples 
+ * @returns 
+ */
+function createGameboyCustomWave(samples) {
+    if (!IOValues.audioCtx) {
+        return null;
+    }
+
+    const oscillator = IOValues.audioCtx.createOscillator();
+    
+    const real = new Float32Array(IOValues.audioCtx.sampleRate / 2);
+    const imaginary = new Float32Array(IOValues.audioCtx.sampleRate / 2);
+
+    real[0] = 0;
+    imaginary[0] = 0;
+
+    oscillator.setPeriodicWave(IOValues.audioCtx.createPeriodicWave(real, imaginary));
+
+    // Create volume controller
+    const gainNode = IOValues.audioCtx.createGain();
+    gainNode.connect(IOValues.audioCtx.destination);
+    oscillator.connect(gainNode);
+
+    return new CustomWave(oscillator, gainNode);
+}
+
+
+/**
+ * Initializes audio channels and creates an audio context object
+ */
+function initializeAudio() {
+    if (!(window.AudioContext || window.webkitAudioContext)) {
+        alert("Your browser does not support the audio webkit API");
+        return;
+    }
+    const audioToggle = document.getElementById("audio-toggle");
+    IOValues.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    audioToggle.innerText = "Mute Audio";
+
+    audioChannels[0].waveforms = [];
+    audioChannels[1].waveforms = [];
+
+    for (let i = 0; i < 4; i++) {
+        audioChannels[0].waveforms.push(createGameboyPulseWave(i));
+        audioChannels[1].waveforms.push(createGameboyPulseWave(i));
+    }
+}
+
+/**
+ * Toggles whether or not the audio is playing
+ */
+function toggleAudio() {
+    if (IOValues.audioCtx) {
+        const audioToggle = document.getElementById("audio-toggle");
+        if (IOValues.audioCtx.state === "running") {
+            IOValues.audioCtx.suspend();
+            audioToggle.innerText = "Unmute Audio";
+        }
+        else if (IOValues.audioCtx.state === "suspended") {
+            IOValues.audioCtx.resume();
+            audioToggle.innerText = "Mute Audio";
+        }
+        else {
+            initializeAudio();
+        }
+    }
+    else {
+        initializeAudio();
+    }
+}
+
+function doAudioUpdate() {
+    const audioMasterControl = Globals.HRAM[0x26];
+    if (audioMasterControl & 0x80 && IOValues.audioCtx) {
+        // Audio Channel 1 (Pulse)
+        {
+            const channel = audioChannels[0];
+            if (!channel.enabled && (Globals.HRAM[0x14] & 0x80)) {
+                // const sweepPace = (Globals.HRAM[0x10] & 0x70) >> 4; // TODO implement sweep
+                // const sweepDirection = (Globals.HRAM[0x10] & 0x08) >> 3;
+
+                const duty = (Globals.HRAM[0x11] & 0xC0) >> 6;
+                const lengthTimer = Globals.HRAM[0x11] & 0x3f;
+                const lengthEnable = (Globals.HRAM[0x14] & 0x40);
+                const periodValue = Globals.HRAM[0x13] | ((Globals.HRAM[0x14] & 0x07) << 8);
+
+                const envelopeDirection = (Globals.HRAM[0x12] & 0x08) >> 3;
+                const envelopePace = Globals.HRAM[0x12] & 0x07;
+                const initialVolume = (Globals.HRAM[0x12] & 0xF0) >> 4;
+
+                const envelopeLength = envelopePace ? Math.abs(envelopeDirection ? 0xF : 0x0 - initialVolume) * envelopePace / 64 : 0;
+                const audioFrequency = 131072 / (2048 - periodValue); // https://gbdev.io/pandocs/Audio_Registers.html#ff13--nr13-channel-1-period-low-write-only
+                const audioLength = lengthEnable ? (64 - lengthTimer) / 256 : 0; // https://gbdev.io/pandocs/Audio.html#length-timer
+
+                channel.currentWave = channel.waveforms[duty];
+
+                channel.currentWave.play({
+                    length: audioLength,
+                    frequency: audioFrequency,
+                    initialVolume: initialVolume * 0.2 / 0xF, // Converts binary volume into real gain
+                    finalVolume: envelopeDirection ? 0.2 : 0,
+                    envelopeLength: envelopeLength,
+                });
+                channel.enabled = true;
+                setTimeout(() => {
+                    channel.enabled = false;
+                }, audioLength * 1000);
+                Globals.HRAM[0x14] &= 0x7F; // Disables channel trigger
+            }
+        }
+
+        // Audio Channel 2 (Pulse)
+        {
+            const channel = audioChannels[1];
+            if (!channel.enabled && (Globals.HRAM[0x19] & 0x80)) {
+                const duty = (Globals.HRAM[0x16] & 0xC0) >> 6;
+                const lengthTimer = Globals.HRAM[0x16] & 0x3F;
+                const lengthEnable = (Globals.HRAM[0x19] & 0x40);
+                const periodValue = Globals.HRAM[0x18] | ((Globals.HRAM[0x19] & 0x07) << 8);
+
+                const envelopeDirection = (Globals.HRAM[0x17] & 0x08) >> 3;
+                const envelopePace = Globals.HRAM[0x17] & 0x07;
+                const initialVolume = (Globals.HRAM[0x17] & 0xF0) >> 4;
+
+                const envelopeLength = envelopePace ? Math.abs(envelopeDirection ? 0xF : 0x0 - initialVolume) * envelopePace / 64 : 0;
+                const audioFrequency = 131072 / (2048 - periodValue); // https://gbdev.io/pandocs/Audio_Registers.html#ff13--nr13-channel-1-period-low-write-only
+                const audioLength = lengthEnable ? (64 - lengthTimer) / 256 : 0;
+
+                channel.currentWave = channel.waveforms[duty];
+                channel.currentWave.play({
+                    length: audioLength,
+                    frequency: audioFrequency,
+                    initialVolume: initialVolume * 0.2 / 0xF, // Converts binary volume into real gain
+                    finalVolume: envelopeDirection ? 0.2 : 0,
+                    envelopeLength: envelopeLength,
+                });
+                channel.enabled = true;
+                setTimeout(() => {
+                    channel.enabled = false;
+                }, audioLength * 1000);
+                Globals.HRAM[0x19] &= 0x7F; // Disables channel trigger
+            }
+        }
+
+        // Audio Channel 3 (Custom)
+        {
+            const channel = audioChannels[2];
+            if (!channel.enabled) {
+
+            }
+        }
+
+        // Audio Channel 4 (Noise)
+        {
+
+        }
+    }
+}

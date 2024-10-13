@@ -824,12 +824,13 @@ function createGameboyPulseWave(dutyCycleSelect) {
 
 /**
  * @typedef AudioChannel
- * @prop {"pulse" | "wave" | "noise"} type       What type of channel this is. This defines what type
- * @prop {boolean}                    enabled    Whether the channel is currently enabled
- * @prop {number}                     dutyCycle  2-bit value that determines the type of pulse wave emitted by pulse wave channels 
- * @prop {number}                     volume     Volume of the channel
- * @prop {number | undefined}         lfsr       Linear feedback shift register used for pseudo-random noise
- * @prop {Wave | null}                Wave       Current wave that the channel is playing
+ * @prop {"pulse" | "wave" | "noise"} type        What type of channel this is. This defines what type
+ * @prop {boolean}                    enabled     Whether the channel is currently enabled
+ * @prop {number}                     dutyCycle   2-bit value that determines the type of pulse wave emitted by pulse wave channels 
+ * @prop {number}                     volume      Volume of the channel
+ * @prop {number | undefined}         lfsr        Linear feedback shift register used for pseudo-random noise
+ * @prop {Array<Wave> | null}         waveforms   Collection of waves that the channel can play
+ * @prop {Wave | null}                currentWave Current wave that the channel is playing
  */
 
 /** @type {Array<AudioChannel>} */
@@ -839,18 +840,21 @@ const audioChannels = [
         enabled: false,
         dutyCycle: 0,
         volume: 0.3,
+        waveforms: null,
     },
     {
         type: "pulse",
         enabled: false,
         dutyCycle: 0,
         volume: 0.3,
+        waveforms: null,
     },
     {
         type: "wave",
         enabled: false,
         dutyCycle: 0,
         volume: 0.3,
+        waveforms: null,
     },
     {
         type: "noise",
@@ -858,16 +862,30 @@ const audioChannels = [
         dutyCycle: 0,
         volume: 0.3,
         lfsr: 0x76, // Could be any 15 bit number
+        waveforms: null,
     },
 ];
 
+function initializeAudio() {
+    const audioToggle = document.getElementById("audio-toggle");
+    IOValues.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    audioToggle.innerText = "Mute Audio";
+
+    audioChannels[0].waveforms = [];
+    audioChannels[1].waveforms = [];
+
+    for (let i = 0; i < 4; i++) {
+        audioChannels[0].waveforms.push(createGameboyPulseWave(i));
+        audioChannels[1].waveforms.push(createGameboyPulseWave(i));
+    }
+}
 
 /**
  * Toggles whether or not the audio is playing
  */
 function toggleAudio() {
-    const audioToggle = document.getElementById("audio-toggle");
     if (IOValues.audioCtx) {
+        const audioToggle = document.getElementById("audio-toggle");
         if (IOValues.audioCtx.state === "running") {
             IOValues.audioCtx.suspend();
             audioToggle.innerText = "Unmute Audio";
@@ -877,13 +895,11 @@ function toggleAudio() {
             audioToggle.innerText = "Mute Audio";
         }
         else {
-            IOValues.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-            audioToggle.innerText = "Mute Audio";
+            initializeAudio();
         }
     }
     else {
-        IOValues.audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-        audioToggle.innerText = "Mute Audio";
+        initializeAudio();
     }
 }
 

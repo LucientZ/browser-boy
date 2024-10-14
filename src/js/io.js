@@ -758,7 +758,7 @@ class PulseWave extends Wave {
      * @param {number | undefined} properties.finalVolume       Volume the envelope will approach
      * @returns {PulseWave}        This object
     */
-    play({ frequency = 440, length = 0, periodSweepLength, envelopeLength = 0, initialVolume = 0.1, finalVolume = 0 }) {
+    play({ frequency = 440, length = 0, periodSweepLength = 0, envelopeLength = 0, initialVolume = 0.1, finalVolume = 0 }) {
         this.stop();
         this._oscillator.frequency.value = frequency;
         this._gainNode.gain.setTargetAtTime(initialVolume, IOValues.audioCtx.currentTime, 0);
@@ -861,8 +861,8 @@ function createGameboyPulseWave(dutyCycleSelect) {
     const maxCoefficient = IOValues.audioCtx.sampleRate / (2 * maxFrequency); // Highest *reasonable* value that a coefficient can have before fourier series breaks down
     const real = new Float32Array(IOValues.audioCtx.sampleRate / 2);
     const imaginary = new Float32Array(IOValues.audioCtx.sampleRate / 2);
-    real[0] = 0;
-    imaginary[0] = 0;
+
+    real[0] = 0; imaginary[0] = 0;
     for (let i = 1; i < maxCoefficient; i++) {
         real[i] = 2 * Math.sin(i * Math.PI * dutyCycle) / (i * Math.PI);
     }
@@ -894,11 +894,18 @@ function createGameboyCustomWave(samples) {
     const real = new Float32Array([0, ...samples.map((number) => number / 0xF)]);
     const imaginary = new Float32Array(real.length);
 
-    oscillator.setPeriodicWave(IOValues.audioCtx.createPeriodicWave(real, imaginary));
-    // for (let i = 1; i < maxCoefficient; i++) {
-    //     real[i] = 2 * Math.sin(i * Math.PI * dutyCycle) / (i * Math.PI);
-    // }
 
+    // Discrete Fourier Transform
+    real[0] = 0; imaginary[0] = 0;
+    for (let i = 1; i < maxCoefficient; i++) {
+        for (let j = 1; j < samples.length; j++) {
+            const sinusoidArgument = 2 * i * Math.PI * j / samples.length;
+            real[i] += samples[j] * Math.cos(sinusoidArgument);
+            imaginary[i] += samples[j] * Math.sin(sinusoidArgument);
+        }
+    }
+
+    oscillator.setPeriodicWave(IOValues.audioCtx.createPeriodicWave(real, imaginary));
 
     // Create volume controller
     const gainNode = IOValues.audioCtx.createGain();

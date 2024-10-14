@@ -103,7 +103,7 @@ const Globals = {
     breakpoints: [],
     callStack: [],
     iterationsPerTick: 7000,
-    masterVolume: 0.2
+    masterVolume: 0.1,
 }
 
 Object.preventExtensions(BYTE_VALUES);

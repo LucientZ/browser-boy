@@ -330,9 +330,19 @@ setInterval(() => {
 
 window.onload = () => {
     const speedSlider = document.getElementById("runtime-speed-slider");
-    speedSlider.value = Globals.iterationsPerTick;
+    speedSlider.value = localStorage.iterationsPerTick || Globals.iterationsPerTick;
+    Globals.iterationsPerTick = speedSlider.value;
     speedSlider.oninput = () => {
         Globals.iterationsPerTick = speedSlider.value;
+        localStorage.iterationsPerTick = Globals.iterationsPerTick;
+    }
+
+    const volumeSlider = document.getElementById("volume-slider");
+    volumeSlider.value = localStorage.volumeSliderValue || 10;
+    Globals.masterVolume = volumeSlider.value / 100;
+    volumeSlider.oninput = () => {
+        Globals.masterVolume = volumeSlider.value / 100;
+        localStorage.volumeSliderValue = volumeSlider.value;
     }
 
     const saveDataInput = document.getElementById("save-upload");

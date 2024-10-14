@@ -63,6 +63,7 @@ const ROMHeaderAddresses = Object.freeze({
  * @prop {Array<number>}     breakpoints        Addresses in which the program should stop (Freezes the program)
  * @prop {Array<string>}     callStack          Addresses the given ROM has called (Not acccurate if the stack moves)
  * @prop {number}            iterationsPerTick  States the amount of times doProgramIteration() is called per tick
+ * @prop {number}            masterVolume       Maximum gain of any audio channel
  * 
  */
 
@@ -102,6 +103,7 @@ const Globals = {
     breakpoints: [],
     callStack: [],
     iterationsPerTick: 7000,
+    masterVolume: 0.2
 }
 
 Object.preventExtensions(BYTE_VALUES);

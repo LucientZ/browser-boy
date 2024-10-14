@@ -758,7 +758,7 @@ class PulseWave extends Wave {
      * @param {number | undefined} properties.finalVolume       Volume the envelope will approach
      * @returns {PulseWave}        This object
     */
-    play({ frequency = 440, length = 0, periodSweepLength = 0, envelopeLength = 0, initialVolume = 0.1, finalVolume = 0 }) {
+    play({ frequency = 440, length = 0, periodSweepLength = 0, envelopeLength = 0, initialVolume = Globals.masterVolume / 2, finalVolume = 0 }) {
         this.stop();
         this._oscillator.frequency.value = frequency;
         this._gainNode.gain.setTargetAtTime(initialVolume, IOValues.audioCtx.currentTime, 0);
@@ -786,7 +786,7 @@ class CustomWave extends Wave {
      * @param   {Object}            properties.frequency
      * @returns {CustomWave}        This object
      */
-    play({ frequency = 440, length = 0, volume = 0.1 }) {
+    play({ frequency = 440, length = 0, volume = Globals.masterVolume / 2 }) {
         this.stop();
         this._oscillator.frequency.value = frequency;
         this._gainNode.gain.setTargetAtTime(volume, IOValues.audioCtx.currentTime, 0);
@@ -813,7 +813,7 @@ class NoiseWave extends Wave {
      * @param {number | undefined} properties.finalVolume       Volume the envelope will approach
      * @returns {PulseWave}        This object
     */
-    play({ frequency, length, envelopeLength = 0, initialVolume = 0.1, finalVolume = 0 }) {
+    play({ frequency, length, envelopeLength = 0, initialVolume = Globals.masterVolume / 2, finalVolume = 0 }) {
         this.stop();
         return this;
     }
@@ -988,8 +988,8 @@ function doAudioUpdate() {
                 channel.currentWave.play({
                     length: audioLength,
                     frequency: audioFrequency,
-                    initialVolume: initialVolume * 0.2 / 0xF, // Converts binary volume into real gain
-                    finalVolume: envelopeDirection ? 0.2 : 0,
+                    initialVolume: initialVolume * Globals.masterVolume / 0xF, // Converts binary volume into real gain
+                    finalVolume: envelopeDirection ? Globals.masterVolume : 0,
                     envelopeLength: envelopeLength,
                 });
                 channel.enabled = true;
@@ -1021,8 +1021,8 @@ function doAudioUpdate() {
                 channel.currentWave.play({
                     length: audioLength,
                     frequency: audioFrequency,
-                    initialVolume: initialVolume * 0.2 / 0xF, // Converts binary volume into real gain
-                    finalVolume: envelopeDirection ? 0.2 : 0,
+                    initialVolume: initialVolume * Globals.masterVolume / 0xF, // Converts binary volume into real gain
+                    finalVolume: envelopeDirection ? Globals.masterVolume : 0,
                     envelopeLength: envelopeLength,
                 });
                 channel.enabled = true;
@@ -1058,7 +1058,7 @@ function doAudioUpdate() {
                 channel.currentWave.play({
                     length: audioLength,
                     frequency: audioFrequency,
-                    volume: outputLevel * 0.2 / 0x3,
+                    volume: outputLevel * Globals.masterVolume / 0x3,
                 });
                 channel.enabled = true;
                 if (audioLength !== 0) {

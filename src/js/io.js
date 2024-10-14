@@ -824,6 +824,17 @@ class NoiseWave extends Wave {
     */
     play({ frequency, length, envelopeLength = 0, initialVolume = Globals.masterVolume / 2, finalVolume = 0 }) {
         this.stop();
+        this._oscillator.frequency.value = frequency;
+        this._gainNode.gain.setTargetAtTime(initialVolume, IOValues.audioCtx.currentTime, 0);
+
+        if (envelopeLength !== 0) {
+            this._gainNode.gain.linearRampToValueAtTime(initialVolume, IOValues.audioCtx.currentTime);
+            this._gainNode.gain.linearRampToValueAtTime(finalVolume, IOValues.audioCtx.currentTime + envelopeLength);
+        }
+
+        if (length !== 0) {
+            this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime + length, 0);
+        }
         return this;
     }
 }
@@ -899,8 +910,8 @@ function createGameboyCustomWave(samples) {
     const oscillator = IOValues.audioCtx.createOscillator();
     const maxFrequency = 1000; // Highest *reasonable* frequency in Hz
     const maxCoefficient = IOValues.audioCtx.sampleRate / (2 * maxFrequency); // Highest *reasonable* value that a coefficient can have before fourier series breaks down
-    const real = new Float32Array([0, ...samples.map((number) => number / 0xF)]);
-    const imaginary = new Float32Array(real.length);
+    const real = new Float32Array(IOValues.audioCtx.sampleRate / 2);
+    const imaginary = new Float32Array(IOValues.audioCtx.sampleRate / 2);
 
     // Discrete Fourier Transform
     real[0] = 0; imaginary[0] = 0;
@@ -926,21 +937,21 @@ function createGameboyCustomWave(samples) {
  * 
  * @param {number} lfsrWidth Falsy if 15-bit. Truthy if 7-bit
  */
-function createGameboyNoiseWave(lfsrWidth) {
+function createGameboyNoiseWave(lfsrWidth, sampleNum) {
     const samples = [];
     const noiseChannel = audioChannels[3];
-    for (let i = 0; i < lfsrWidth ? 7 : 15; i++) {
-        samples.push((noiseChannel.lfsr >> i) & 0x01);
+    for (let i = 0; i < (lfsrWidth ? sampleNum / 2 : sampleNum); i++) {
+        samples.push(noiseChannel.lfsr & 0x01);
+        const xorBit = (noiseChannel.lfsr & 0x01) ^ ((noiseChannel.lfsr >> 1) & 0x01);
+        noiseChannel.lfsr >>= 1;
+        noiseChannel.lfsr = lfsrWidth ? noiseChannel.lfsr & 0x7f7f | (xorBit << 15) | (xorBit << 7) : noiseChannel.lfsr & 0x7FFF | (xorBit << 15);
     }
-    const xorBit = (noiseChannel.lfsr & 0x01) ^ ((noiseChannel.lfsr >> 1) & 0x01);
-    noiseChannel.lfsr = lfsrWidth ? noiseChannel.lfsr & 0x7f7f | (xorBit << 15) | (xorBit << 7) : noiseChannel.lfsr & 0x7FFF | (xorBit << 15);
-    noiseChannel.lfsr >>= 1;
 
     const oscillator = IOValues.audioCtx.createOscillator();
     const maxFrequency = 1000; // Highest *reasonable* frequency in Hz
     const maxCoefficient = IOValues.audioCtx.sampleRate / (2 * maxFrequency); // Highest *reasonable* value that a coefficient can have before fourier series breaks down
-    const real = new Float32Array([0, ...samples.map((number) => number / 0xF)]);
-    const imaginary = new Float32Array(real.length);
+    const real = new Float32Array(IOValues.audioCtx.sampleRate / 2);
+    const imaginary = new Float32Array(IOValues.audioCtx.sampleRate / 2);
 
     // Discrete Fourier Transform
     real[0] = 0; imaginary[0] = 0;
@@ -1058,9 +1069,11 @@ function doAudioUpdate() {
                     // targetSweepFrequency: targetSweepFrequency,
                 });
                 channel.enabled = true;
-                setTimeout(() => {
-                    channel.enabled = false;
-                }, audioLength * 1000);
+                if (audioLength !== 0) {
+                    setTimeout(() => {
+                        channel.enabled = false;
+                    }, audioLength * 1000);
+                }
                 Globals.HRAM[0x14] &= 0x7F; // Disables channel trigger
             }
         }
@@ -1091,9 +1104,11 @@ function doAudioUpdate() {
                     envelopeLength: envelopeLength,
                 });
                 channel.enabled = true;
-                setTimeout(() => {
-                    channel.enabled = false;
-                }, audioLength * 1000);
+                if (audioLength !== 0) {
+                    setTimeout(() => {
+                        channel.enabled = false;
+                    }, audioLength * 1000);
+                }
                 Globals.HRAM[0x19] &= 0x7F; // Disables channel trigger
             }
         }
@@ -1102,7 +1117,7 @@ function doAudioUpdate() {
         {
             const channel = audioChannels[2];
             if (!channel.enabled && (Globals.HRAM[0x1E] & 0x80) && (Globals.HRAM[0x1A] & 0x80)) {
-                const lengthTimer = Globals.HRAM[0x1B];
+                const lengthTimer = Globals.HRAM[0x1B] & 0x3F;
                 const lengthEnable = (Globals.HRAM[0x1E] & 0x40);
                 const periodValue = Globals.HRAM[0x1D] | ((Globals.HRAM[0x1E] & 0x07) << 8);
                 const outputLevel = (Globals.HRAM[0x1C] & 0x60) >> 5;
@@ -1156,7 +1171,46 @@ function doAudioUpdate() {
 
         // Audio Channel 4 (Noise)
         {
+            const channel = audioChannels[3];
+            if ( !channel.enabled && (Globals.HRAM[0x23] & 0x80)) {
+                const lengthTimer = Globals.HRAM[0x20] & 0x3F;
+                const lengthEnable = (Globals.HRAM[0x23] & 0x40);
+                const clockShift = (Globals.HRAM[0x22] & 0xF0) >> 4;
+                const clockDivider = Globals.HRAM[0x22] & 0x07;
+                const lfsrWidth = (Globals.HRAM[0x22] & 0x08);
 
+                const envelopeDirection = (Globals.HRAM[0x21] & 0x08) >> 3;
+                const envelopePace = Globals.HRAM[0x21] & 0x07;
+                const initialVolume = (Globals.HRAM[0x21] & 0xF0) >> 4;
+
+                const envelopeLength = envelopePace ? Math.abs(envelopeDirection ? 0xF : 0x0 - initialVolume) * envelopePace / 64 : 0;
+                const audioLength = lengthEnable ? (64 - lengthTimer) / 256 : 0;
+
+                // Technically, this is not *exactly* how the gameboy made white noise, but it's close enough
+                // What *should* happen is the oscillator should be either 1 or 0 constantly, but we can't do that so we just sample a large amount
+                const nSamples = 400;
+                const lfsrFrequency = 262144 / ((clockDivider || 0.5) * (2 << clockShift)); // https://gbdev.io/pandocs/Audio_Registers.html#ff22--nr43-channel-4-frequency--randomness
+                const audioFrequency = lfsrFrequency / nSamples; // https://gbdev.io/pandocs/Audio_Registers.html#ff22--nr43-channel-4-frequency--randomness
+                if (channel.currentWave) {
+                    channel.currentWave.stop();
+                }
+                channel.currentWave = createGameboyNoiseWave(lfsrWidth, nSamples);
+
+                channel.currentWave.play({
+                    length: audioLength,
+                    frequency: audioFrequency,
+                    initialVolume: initialVolume * Globals.masterVolume / 0xF, // Converts binary volume into real gain
+                    finalVolume: envelopeDirection ? Globals.masterVolume : 0,
+                    envelopeLength: envelopeLength,
+                });
+                channel.enabled = true;
+                if (audioLength !== 0) {
+                    setTimeout(() => {
+                        channel.enabled = false;
+                    }, audioLength * 1000);
+                }
+                Globals.HRAM[0x23] &= 0x7F; // Disables channel trigger
+            }
         }
     }
 }

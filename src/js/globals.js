@@ -150,7 +150,7 @@ const audioChannels = [
         enabled: false,
         dutyCycle: 0,
         volume: 0.3,
-        lfsr: 0x76, // Could be any 15 bit number
+        lfsr: 0x2A76, // Could be any 15 bit number
         waveforms: null,
     },
 ];

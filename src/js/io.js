@@ -1029,21 +1029,21 @@ function doAudioUpdate() {
         // Audio Channel 3 (Custom)
         {
             const channel = audioChannels[2];
-            if (!channel.enabled && (Globals.HRAM[0x1E] & 0x80)) {
-                const lengthTimer = (Globals.HRAM[0x1B]);
+            if (!channel.enabled && (Globals.HRAM[0x1E] & 0x80) && (Globals.HRAM[0x1A] & 0x80)) {
+                const lengthTimer = Globals.HRAM[0x1B];
                 const lengthEnable = (Globals.HRAM[0x1E] & 0x40);
                 const periodValue = Globals.HRAM[0x1D] | ((Globals.HRAM[0x1E] & 0x07) << 8);
                 const outputLevel = (Globals.HRAM[0x1C] & 0x60) >> 5;
 
                 const audioFrequency = 65536 / (2048 - periodValue);
-                const audioLength = lengthEnable ? (256 - lengthTimer) / 256 : 0;
+                const audioLength = lengthEnable ? (64 - lengthTimer) / 256 : 0;
 
                 const samples = [];
                 for (let i = 0x30; i <= 0x3F; i++) {
-                    samples.push(Globals.HRAM[i]);
+                    samples.push((Globals.HRAM[i] & 0xF0) >> 4);
+                    samples.push(Globals.HRAM[i] & 0x0F);
                 }
 
-                console.log(audioLength)
                 if (channel.currentWave) {
                     channel.currentWave.stop();
                 }
@@ -1051,12 +1051,14 @@ function doAudioUpdate() {
                 channel.currentWave.play({
                     length: audioLength,
                     frequency: audioFrequency,
-                    volume: outputLevel * 0.1 / 0x3,
+                    volume: outputLevel * 0.2 / 0x3,
                 });
                 channel.enabled = true;
-                setTimeout(() => {
-                    channel.enabled = false;
-                }, audioLength * 1000);
+                if (audioLength !== 0) {
+                    setTimeout(() => {
+                        channel.enabled = false;
+                    }, audioLength * 1000);
+                }
                 Globals.HRAM[0x1E] &= 0x7F; // Disables channel trigger
             }
         }

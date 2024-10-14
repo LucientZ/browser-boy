@@ -280,6 +280,21 @@ function writeIO(addr, val) {
                 audioChannels[1].enabled = false;
             }
             break;
+        case 0x0F:
+            IORegisters.IF = val;
+            return;
+        case 0x14:
+            if (audioChannels[0].currentWave && (val & 0x80)) {
+                audioChannels[0].currentWave.stop();
+                audioChannels[0].enabled = false;
+            }
+            break;
+        case 0x19:
+            if (audioChannels[1].currentWave && (val & 0x80)) {
+                audioChannels[1].currentWave.stop();
+                audioChannels[1].enabled = false;
+            }
+            break;
         case 0x1A:
             if (audioChannels[2].currentWave && !(val & 0x80)) {
                 audioChannels[2].currentWave.stop();
@@ -290,8 +305,8 @@ function writeIO(addr, val) {
         case 0x1E:
             if (audioChannels[2].currentWave && (val & 0x80)) {
                 audioChannels[2].currentWave.stop();
-                audioChannels[2].enabled = false;
             }
+            audioChannels[2].enabled = false;
             break;
         case 0x40:
             // Reset LY to 0 when lcd is turned off

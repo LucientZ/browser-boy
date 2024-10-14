@@ -291,6 +291,15 @@ function parseROM(rom) {
 
 }
 
+function freezeProgram() {
+    Globals.frozen = true;
+    for (const channel of audioChannels) {
+        if (channel.currentWave) {
+            channel.currentWave.stop();
+        }
+    }
+}
+
 function doProgramIteration() {
     doLCDUpdate();
     doTimerUpdate();

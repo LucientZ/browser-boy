@@ -786,8 +786,14 @@ class CustomWave extends Wave {
      * @param   {Object}            properties.frequency
      * @returns {CustomWave}        This object
      */
-    play({ frequency, length, volume }) {
+    play({ frequency = 440, length = 0, volume = 0.1 }) {
         this.stop();
+        this._oscillator.frequency.value = frequency;
+        this._gainNode.gain.setTargetAtTime(volume, IOValues.audioCtx.currentTime, 0);
+
+        if (length !== 0) {
+            this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime + length, 0);
+        }
         return this;
     }
 }
@@ -873,7 +879,7 @@ function createGameboyPulseWave(dutyCycleSelect) {
 
 /**
  * 
- * @param {Array<number>} samples 
+ * @param {Array<number>} samples 4-bit audio samples used for the custom waveform
  * @returns 
  */
 function createGameboyCustomWave(samples) {
@@ -882,14 +888,17 @@ function createGameboyCustomWave(samples) {
     }
 
     const oscillator = IOValues.audioCtx.createOscillator();
-    
-    const real = new Float32Array(IOValues.audioCtx.sampleRate / 2);
-    const imaginary = new Float32Array(IOValues.audioCtx.sampleRate / 2);
 
-    real[0] = 0;
-    imaginary[0] = 0;
+    const maxFrequency = 1000; // Highest *reasonable* frequency in Hz
+    const maxCoefficient = IOValues.audioCtx.sampleRate / (2 * maxFrequency); // Highest *reasonable* value that a coefficient can have before fourier series breaks down
+    const real = new Float32Array([0, ...samples.map((number) => number / 0xF)]);
+    const imaginary = new Float32Array(real.length);
 
     oscillator.setPeriodicWave(IOValues.audioCtx.createPeriodicWave(real, imaginary));
+    // for (let i = 1; i < maxCoefficient; i++) {
+    //     real[i] = 2 * Math.sin(i * Math.PI * dutyCycle) / (i * Math.PI);
+    // }
+
 
     // Create volume controller
     const gainNode = IOValues.audioCtx.createGain();
@@ -1020,8 +1029,35 @@ function doAudioUpdate() {
         // Audio Channel 3 (Custom)
         {
             const channel = audioChannels[2];
-            if (!channel.enabled) {
+            if (!channel.enabled && (Globals.HRAM[0x1E] & 0x80)) {
+                const lengthTimer = (Globals.HRAM[0x1B]);
+                const lengthEnable = (Globals.HRAM[0x1E] & 0x40);
+                const periodValue = Globals.HRAM[0x1D] | ((Globals.HRAM[0x1E] & 0x07) << 8);
+                const outputLevel = (Globals.HRAM[0x1C] & 0x60) >> 5;
 
+                const audioFrequency = 65536 / (2048 - periodValue);
+                const audioLength = lengthEnable ? (256 - lengthTimer) / 256 : 0;
+
+                const samples = [];
+                for (let i = 0x30; i <= 0x3F; i++) {
+                    samples.push(Globals.HRAM[i]);
+                }
+
+                console.log(audioLength)
+                if (channel.currentWave) {
+                    channel.currentWave.stop();
+                }
+                channel.currentWave = createGameboyCustomWave(samples);
+                channel.currentWave.play({
+                    length: audioLength,
+                    frequency: audioFrequency,
+                    volume: outputLevel * 0.1 / 0x3,
+                });
+                channel.enabled = true;
+                setTimeout(() => {
+                    channel.enabled = false;
+                }, audioLength * 1000);
+                Globals.HRAM[0x1E] &= 0x7F; // Disables channel trigger
             }
         }
 

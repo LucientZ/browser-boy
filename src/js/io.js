@@ -749,10 +749,10 @@ class Wave {
  */
 class PulseWave extends Wave {
     /**
-     * Plays the wave with given properties
+     * Plays the wave with given properties and stops the previous oscillation
      * @param {Object}             properties                   Properties that should be taken into account when playing the tone
-     * @param {number | undefined} properties.frequency         Frequency the oscillator should play in Hz 
-     * @param {number | undefined} properties.length            Duration in seconds. If set to 0, play forever 
+     * @param {number | undefined} properties.frequency         Frequency the oscillator should play in Hz
+     * @param {number | undefined} properties.length            Duration in seconds. If set to 0, play forever
      * @param {number | undefined} properties.envelopeLength    Duration in seconds of how long the envelope will last. If set to 0, disable envelope 
      * @param {number | undefined} properties.initialVolume     Volume the envelope starts at
      * @param {number | undefined} properties.finalVolume       Volume the envelope will approach
@@ -781,9 +781,11 @@ class PulseWave extends Wave {
  */
 class CustomWave extends Wave {
     /**
-     * 
-     * @param   {Object}            properties
-     * @param   {Object}            properties.frequency
+     * Plays the wave with given properties and stops the previous oscillation
+     * @param   {Object}            properties            Properties that should be taken into account when playing the tone
+     * @param   {number}            properties.frequency  Frequency the oscillator should play in Hz
+     * @param   {number}            properties.length     Duration in seconds. If set to 0, play forever
+     * @param   {number}            properties.volume     Volume of the wave. There is only one volume control since custom waves only have a set volume. 
      * @returns {CustomWave}        This object
      */
     play({ frequency = 440, length = 0, volume = Globals.masterVolume / 2 }) {
@@ -804,7 +806,7 @@ class CustomWave extends Wave {
  */
 class NoiseWave extends Wave {
     /**
-     * Plays the noise wave with given properties
+     * Plays the noise wave with given properties and stops the previous oscillation
      * @param {Object}             properties                   Properties that should be taken into account when playing the tone
      * @param {number | undefined} properties.frequency         Frequency the oscillator should play in Hz 
      * @param {number | undefined} properties.length            Duration in seconds. If set to 0, play forever 
@@ -1051,6 +1053,25 @@ function doAudioUpdate() {
                     samples.push(Globals.HRAM[i] & 0x0F);
                 }
 
+                let audioVolume;
+                switch (outputLevel) {
+                    case 0:
+                        audioVolume = 0;
+                        break;
+                    case 1:
+                        audioVolume = Globals.masterVolume;
+                        break;
+                    case 2:
+                        audioVolume = Globals.masterVolume * 0.5;
+                        samples.pop();
+                        break;
+                    case 3:
+                        audioVolume = Globals.masterVolume * 0.25;
+                        samples.pop();
+                        samples.pop();
+                        break;
+                }
+
                 if (channel.currentWave) {
                     channel.currentWave.stop();
                 }
@@ -1058,7 +1079,7 @@ function doAudioUpdate() {
                 channel.currentWave.play({
                     length: audioLength,
                     frequency: audioFrequency,
-                    volume: outputLevel * Globals.masterVolume / 0x3,
+                    volume: audioVolume,
                 });
                 channel.enabled = true;
                 if (audioLength !== 0) {

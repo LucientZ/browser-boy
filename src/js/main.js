@@ -322,16 +322,6 @@ function doProgramIteration() {
     }
 }
 
-setInterval(() => {
-    if (Globals.ROM && !Globals.frozen) {
-        for (let i = 0; i < Globals.iterationsPerTick; i++) {
-            if (Globals.frozen) {
-                break;
-            }
-            doProgramIteration();
-        }
-    }
-});
 
 setInterval(flushVideoBuffer, 16.74);
 setInterval(() => {
@@ -354,3 +344,19 @@ window.onload = () => {
         }
     });
 }
+
+(function eventLoop() {
+    requestAnimationFrame(eventLoop);
+    console.log("Frame");
+    if (Globals.ROM && !Globals.frozen) {
+        for (let i = 0; i < Globals.iterationsPerTick; i++) {
+            if (Globals.frozen) {
+                break;
+            }
+            const currentCycles = Globals.cycleNumber;
+            doProgramIteration();
+            const cycleDelta = Globals.cycleNumber - currentCycles;
+            i += cycleDelta;
+        }
+    }
+})();

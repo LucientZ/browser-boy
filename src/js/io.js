@@ -827,8 +827,7 @@ class CustomWave {
     play({ frequency = 440, length = 0, volume = Globals.masterVolume / 2 }) {
         this.stop();
         this._gainNode.gain.setTargetAtTime(volume, IOValues.audioCtx.currentTime, 0);
-        this._bufferSource.playbackRate.value = frequency * 32 / this._bufferSource.buffer.sampleRate;
-        console.log(this._bufferSource.playbackRate.value);
+        this._bufferSource.playbackRate.value = frequency * 32 / 65536; // Since we have 32 samples, we playback at this rate: frequency * 32 / sample_rate
 
         if (length !== 0) {
             this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime + length, 0);
@@ -858,6 +857,17 @@ class CustomWave {
             this._audioBuffer[i] = samples[i] / 0xF;
         }
         this._bufferSource.buffer.copyToChannel(this._audioBuffer, 0, 0);
+        
+        const replacementSource = IOValues.audioCtx.createBufferSource();
+        replacementSource.buffer = this._bufferSource.buffer;
+        replacementSource.loop = true;
+        replacementSource.connect(this._gainNode);
+        
+        this._bufferSource.stop();
+        this._bufferSource.disconnect();
+
+        this._bufferSource = replacementSource;
+        this._bufferSource.start();
     }
 }
 

@@ -702,9 +702,6 @@ document.addEventListener("keyup", (event) => {
 
 /**
  * @typedef Wave
- * @prop {OscillatorNode} _oscillator        Oscillator used to produce the waveform
- * @prop {GainNode}       _gainNode          Gain Node used to control volume (amplitude) of the waveform
- * @prop {number | null}  _smoothingInterval How quickly in Hz the envelope will change
  * @prop {Function}       play               Plays the current wave with given parameters (depends on the channel)
  * @prop {Function}       stop               Stops the current wave from playing
  */
@@ -714,24 +711,6 @@ document.addEventListener("keyup", (event) => {
  * @type {Wave}
  */
 class Wave {
-    /**
-     * Create a Wave object. This is an interface for interacting with a specific waveform
-     * @param {OscillatorNode} _oscillator 
-     * @param {GainNode}       _gainNode 
-     */
-    constructor(oscillator, gainNode) {
-        if (!oscillator || typeof oscillator !== "object") {
-            throw new TypeError(`oscillator must be of type OscillatorNode instead got ${oscillator ? typeof oscillator : oscillator}`);
-        }
-        if (!gainNode || typeof gainNode !== "object") {
-            throw new TypeError(`gainNode must be of type GainNode instead got ${oscillator ? typeof oscillator : oscillator}`);
-        }
-        this._oscillator = oscillator;
-        this._gainNode = gainNode;
-        this._gainNode.gain.value = 0;
-        this._oscillator.start();
-    }
-
     /**
      * Stops the wave from playing earlier than specified
      * @returns {PulseWave}      This object
@@ -748,7 +727,25 @@ class Wave {
  * Interface for interacting with a pulse wave
  * @type {Wave}
  */
-class PulseWave extends Wave {
+class PulseWave {
+    /**
+     * Create a Pulse Wave object
+     * @param {OscillatorNode} _oscillator Oscillator for periodic pulse wave
+     * @param {GainNode}       _gainNode   Used to control volume
+     */
+    constructor(oscillator, gainNode) {
+        if (!oscillator || typeof oscillator !== "object") {
+            throw new TypeError(`oscillator must be of type OscillatorNode instead got ${oscillator ? typeof oscillator : oscillator}`);
+        }
+        if (!gainNode || typeof gainNode !== "object") {
+            throw new TypeError(`gainNode must be of type GainNode instead got ${gainNode ? typeof gainNode : gainNode}`);
+        }
+        this._oscillator = oscillator;
+        this._gainNode = gainNode;
+        this._gainNode.gain.value = 0;
+        this._oscillator.start();
+    }
+
     /**
      * Plays the wave with given properties and stops the previous oscillation
      * @param {Object}             properties                      Properties that should be taken into account when playing the tone
@@ -780,13 +777,45 @@ class PulseWave extends Wave {
         }
         return this;
     }
+
+    /**
+     * Stops the wave from playing earlier than specified
+     * @returns {PulseWave}      This object
+    */
+    stop() {
+        this._oscillator.frequency.cancelScheduledValues(IOValues.audioCtx.currentTime);
+        this._gainNode.gain.cancelScheduledValues(IOValues.audioCtx.currentTime);
+        this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime, 0);
+        return this;
+    }
 }
 
 /**
  * Interface for interacting with a custom wave
  * @type {Wave}
  */
-class CustomWave extends Wave {
+class CustomWave {
+
+    /**
+     * Creates a Custom Wave object
+     * @param {AudioBufferSourceNode} bufferSource Where the audio buffer is stored
+     * @param {GainNode}              gainNode     Used to control volume
+     */
+    constructor(bufferSource, gainNode) {
+        if (!bufferSource || typeof bufferSource !== "object") {
+            throw new TypeError(`buffer must be of type AudioBuffer instead got ${bufferSource ? typeof bufferSource : bufferSource}`);
+        }
+        if (!gainNode || typeof gainNode !== "object") {
+            throw new TypeError(`gainNode must be of type GainNode instead got ${gainNode ? typeof gainNode : gainNode}`);
+        }
+
+        this._audioBuffer = new Float32Array(32); // Where 32 samples are loaded
+        this._gainNode = gainNode;
+        this._gainNode.gain.value = 0;
+        this._bufferSource = bufferSource;
+        this._bufferSource.start();
+    }
+
     /**
      * Plays the wave with given properties and stops the previous oscillation
      * @param   {Object}            properties            Properties that should be taken into account when playing the tone
@@ -797,13 +826,38 @@ class CustomWave extends Wave {
      */
     play({ frequency = 440, length = 0, volume = Globals.masterVolume / 2 }) {
         this.stop();
-        this._oscillator.frequency.value = frequency;
         this._gainNode.gain.setTargetAtTime(volume, IOValues.audioCtx.currentTime, 0);
+        this._bufferSource.playbackRate.value = frequency * 32 / this._bufferSource.buffer.sampleRate;
+        console.log(this._bufferSource.playbackRate.value);
 
         if (length !== 0) {
             this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime + length, 0);
         }
         return this;
+    }
+
+    /**
+     * Stops the wave from playing earlier than specified
+     * @returns {CustomWave} This object
+    */
+    stop() {
+        this._gainNode.gain.cancelScheduledValues(IOValues.audioCtx.currentTime);
+        this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime, 0);
+        return this;
+    }
+
+    /**
+     * Loads a maximum of 32 samples into the audio buffer. Can be done while the wave is playing.
+     * @param {Array<number>} samples List of 32 4-bit samples
+     */
+    loadSamples(samples) {
+        if (samples.length > 32) {
+            console.warn("More than 32 samples provided to Custom Wave. Dropping some samples");
+        }
+        for (let i = 0; i < Math.min(32, samples.length); i++) {
+            this._audioBuffer[i] = samples[i] / 0xF;
+        }
+        this._bufferSource.buffer.copyToChannel(this._audioBuffer, 0, 0);
     }
 }
 
@@ -898,39 +952,24 @@ function createGameboyPulseWave(dutyCycleSelect) {
 }
 
 /**
- * Creates a custom 
- * @param {Array<number>}       samples 4-bit audio samples used for the custom waveform
+ * Creates a custom waveform object
  * @returns {CustomWave | null} null if audio context does not exist
  */
-function createGameboyCustomWave(samples) {
+function createGameboyCustomWave() {
     if (!IOValues.audioCtx) {
         return null;
     }
 
-    const oscillator = IOValues.audioCtx.createOscillator();
-    const maxFrequency = 1000; // Highest *reasonable* frequency in Hz
-    const maxCoefficient = IOValues.audioCtx.sampleRate / (2 * maxFrequency); // Highest *reasonable* value that a coefficient can have before fourier series breaks down
-    const real = new Float32Array(IOValues.audioCtx.sampleRate / 2);
-    const imaginary = new Float32Array(IOValues.audioCtx.sampleRate / 2);
-
-    // Discrete Fourier Transform
-    real[0] = 0; imaginary[0] = 0;
-    for (let i = 1; i < maxCoefficient; i++) {
-        for (let j = 1; j < samples.length; j++) {
-            const sinusoidArgument = 2 * i * Math.PI * j / samples.length;
-            real[i] += samples[j] * Math.cos(sinusoidArgument);
-            imaginary[i] += samples[j] * Math.sin(sinusoidArgument);
-        }
-    }
-
-    oscillator.setPeriodicWave(IOValues.audioCtx.createPeriodicWave(real, imaginary));
+    const bufferSource = IOValues.audioCtx.createBufferSource();
+    bufferSource.buffer = IOValues.audioCtx.createBuffer(1, 32, 65536);
+    bufferSource.loop = true;
 
     // Create volume controller
     const gainNode = IOValues.audioCtx.createGain();
     gainNode.connect(IOValues.audioCtx.destination);
-    oscillator.connect(gainNode);
+    bufferSource.connect(gainNode);
 
-    return new CustomWave(oscillator, gainNode);
+    return new CustomWave(bufferSource, gainNode);
 }
 
 /**
@@ -992,6 +1031,7 @@ function initializeAudio() {
         audioChannels[0].waveforms.push(createGameboyPulseWave(i));
         audioChannels[1].waveforms.push(createGameboyPulseWave(i));
     }
+    audioChannels[2].currentWave = createGameboyCustomWave();
 }
 
 /**
@@ -1150,10 +1190,13 @@ function doAudioUpdate() {
                         break;
                 }
 
-                if (channel.currentWave) {
+                if (!channel.currentWave) {
+                    channel.currentWave = createGameboyCustomWave();
+                }
+                else {
                     channel.currentWave.stop();
                 }
-                channel.currentWave = createGameboyCustomWave(samples);
+                channel.currentWave.loadSamples(samples);
                 channel.currentWave.play({
                     length: audioLength,
                     frequency: audioFrequency,
@@ -1172,7 +1215,7 @@ function doAudioUpdate() {
         // Audio Channel 4 (Noise)
         {
             const channel = audioChannels[3];
-            if ( !channel.enabled && (Globals.HRAM[0x23] & 0x80)) {
+            if (false && !channel.enabled && (Globals.HRAM[0x23] & 0x80)) {
                 const lengthTimer = Globals.HRAM[0x20] & 0x3F;
                 const lengthEnable = (Globals.HRAM[0x23] & 0x40);
                 const clockShift = (Globals.HRAM[0x22] & 0xF0) >> 4;

@@ -298,7 +298,6 @@ function writeIO(addr, val) {
         case 0x1A:
             if (audioChannels[2].currentWave && !(val & 0x80)) {
                 audioChannels[2].currentWave.stop();
-                audioChannels[2].currentWave = null;
                 audioChannels[2].enabled = false;
             }
             break;

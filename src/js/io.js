@@ -806,7 +806,7 @@ class CustomWave {
      * @param   {number}            properties.volume     Volume of the wave. There is only one volume control since custom waves only have a set volume. 
      * @returns {CustomWave}        This object
      */
-    play({ frequency = 440, length = 0, volume = Globals.masterVolume / 2 }) {
+    play({ frequency = 440, length = 1, volume = Globals.masterVolume / 2 }) {
         this.stop();
         this._gainNode.gain.setTargetAtTime(volume, IOValues.audioCtx.currentTime, 0);
         this._bufferSource.playbackRate.value = frequency * this._bufferSource.buffer.length / this._bufferSource.buffer.sampleRate; // Since we have 32 samples, we playback at this rate: frequency * 32 / 65536
@@ -878,19 +878,19 @@ class NoiseWave {
         this._gainNode.gain.value = 0;
         this._bufferSource = bufferSource;
         this._bufferSource.start();
+        this._audioBuffer = new Float32Array(IOValues.audioCtx.sampleRate);
     }
 
     /**
      * Plays the noise wave with given properties and stops the previous oscillation
      * @param {Object}             properties                   Properties that should be taken into account when playing the tone
-     * @param {number | undefined} properties.frequency         Frequency the oscillator should play in Hz 
      * @param {number | undefined} properties.length            Duration in seconds. If set to 0, play forever 
      * @param {number | undefined} properties.envelopeLength    Duration in seconds of how long the envelope will last. If set to 0, disable envelope 
      * @param {number | undefined} properties.initialVolume     Volume the envelope starts at
      * @param {number | undefined} properties.finalVolume       Volume the envelope will approach
      * @returns {PulseWave}        This object
     */
-    play({ frequency, length, envelopeLength = 0, initialVolume = Globals.masterVolume / 2, finalVolume = 0 }) {
+    play({ length = 1, envelopeLength = 0, initialVolume = Globals.masterVolume / 2, finalVolume = 0 }) {
         this.stop();
         this._gainNode.gain.setTargetAtTime(initialVolume, IOValues.audioCtx.currentTime, 0);
         this._gainNode.connect(IOValues.audioCtx.destination);
@@ -925,21 +925,21 @@ class NoiseWave {
      */
     loadNewWave(lfsrWidth, lfsrFrequency) {
         const sampleNum = lfsrFrequency;
-        const audioBuffer = new Float32Array(IOValues.audioCtx.sampleRate);
-        const sampleWidth = Math.floor(audioBuffer.length / sampleNum) || 1;
+        const sampleWidth = Math.floor(this._audioBuffer.length / sampleNum) || 1;
         const noiseChannel = audioChannels[3];
-        for (let i = 0; i < sampleNum && (i * sampleWidth + sampleWidth) < audioBuffer.length; i++) {
+        for (let i = 0; i < sampleNum && (i * sampleWidth + sampleWidth) < this._audioBuffer.length; i++) {
             for (let j = 0; j < sampleWidth; j++) {
-                audioBuffer[i * sampleWidth + j] = (noiseChannel.lfsr & 0x01);
+                this._audioBuffer[i * sampleWidth + j] = (noiseChannel.lfsr & 0x01);
             }
             const xorBit = (noiseChannel.lfsr & 0x01) ^ ((noiseChannel.lfsr >> 1) & 0x01);
             noiseChannel.lfsr = lfsrWidth ? (noiseChannel.lfsr & 0x7f7f) | (xorBit << 15) | (xorBit << 7) : (noiseChannel.lfsr & 0x7FFF) | (xorBit << 15);
             noiseChannel.lfsr >>= 1;
         }
+        this._bufferSource.buffer.copyToChannel(this._audioBuffer, 0, 0);
 
+        // Must replace the audio source to comply with Firefox's implementation of AudioBufferSourceNode
         const replacementSource = IOValues.audioCtx.createBufferSource();
-        replacementSource.buffer = IOValues.audioCtx.createBuffer(1, audioBuffer.length, IOValues.audioCtx.sampleRate);
-        replacementSource.buffer.copyToChannel(audioBuffer, 0, 0);
+        replacementSource.buffer = this._bufferSource.buffer;
         replacementSource.loop = true;
         replacementSource.connect(this._gainNode);
 
@@ -948,7 +948,6 @@ class NoiseWave {
 
         this._bufferSource = replacementSource;
         this._bufferSource.start();
-
 
         return this;
     }
@@ -1276,7 +1275,7 @@ function doAudioUpdate() {
 
                 const envelopeDirection = (Globals.HRAM[0x21] & 0x08) >> 3;
                 const envelopePace = Globals.HRAM[0x21] & 0x07;
-                const initialVolume = (Globals.HRAM[0x21] & 0xF0) >> 4;
+                const initialVolume = Globals.HRAM[0x21] >> 4;
 
                 const envelopeLength = envelopePace ? Math.abs(envelopeDirection ? 0xF : 0x0 - initialVolume) * envelopePace / 64 : 0;
                 const audioLength = lengthEnable ? (64 - lengthTimer) / 256 : 0;
@@ -1291,7 +1290,7 @@ function doAudioUpdate() {
 
                 channel.currentWave.stop().loadNewWave(lfsrWidth, lfsrFrequency).play({
                     length: audioLength,
-                    initialVolume: initialVolume * Globals.masterVolume / 0xF, // Converts binary volume into real gain
+                    initialVolume: initialVolume * Globals.masterVolume / 0x1E, // Converts binary volume into real gain
                     finalVolume: envelopeDirection ? Globals.masterVolume : 0,
                     envelopeLength: envelopeLength,
                 });

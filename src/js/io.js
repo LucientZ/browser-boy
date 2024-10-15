@@ -925,20 +925,21 @@ class NoiseWave {
      */
     loadNewWave(lfsrWidth, lfsrFrequency) {
         const sampleNum = lfsrFrequency;
-        const samples = new Float32Array(sampleNum);
+        const audioBuffer = new Float32Array(IOValues.audioCtx.sampleRate);
+        const sampleWidth = Math.floor(audioBuffer.length / sampleNum) || 1;
         const noiseChannel = audioChannels[3];
-        for (let i = 0; i < sampleNum; i++) {
-            samples[i] = (noiseChannel.lfsr & 0x01) * 2 - 1;
+        for (let i = 0; i < sampleNum && (i * sampleWidth + sampleWidth) < audioBuffer.length; i++) {
+            for (let j = 0; j < sampleWidth; j++) {
+                audioBuffer[i * sampleWidth + j] = (noiseChannel.lfsr & 0x01);
+            }
             const xorBit = (noiseChannel.lfsr & 0x01) ^ ((noiseChannel.lfsr >> 1) & 0x01);
+            noiseChannel.lfsr = lfsrWidth ? (noiseChannel.lfsr & 0x7f7f) | (xorBit << 15) | (xorBit << 7) : (noiseChannel.lfsr & 0x7FFF) | (xorBit << 15);
             noiseChannel.lfsr >>= 1;
-            noiseChannel.lfsr = lfsrWidth ? noiseChannel.lfsr & 0x7f7f | (xorBit << 15) | (xorBit << 7) : noiseChannel.lfsr & 0x7FFF | (xorBit << 15);
         }
 
-        console.log(lfsrWidth, lfsrFrequency, IOValues.audioCtx.sampleRate);
-        
         const replacementSource = IOValues.audioCtx.createBufferSource();
-        replacementSource.buffer = IOValues.audioCtx.createBuffer(1, sampleNum, IOValues.audioCtx.sampleRate / 5);
-        replacementSource.buffer.copyToChannel(samples, 0, 0);
+        replacementSource.buffer = IOValues.audioCtx.createBuffer(1, audioBuffer.length, IOValues.audioCtx.sampleRate);
+        replacementSource.buffer.copyToChannel(audioBuffer, 0, 0);
         replacementSource.loop = true;
         replacementSource.connect(this._gainNode);
 
@@ -1042,19 +1043,22 @@ function createGameboyCustomWave() {
  */
 function createGameboyNoiseWave(lfsrWidth, lfsrFrequency) {
     const sampleNum = lfsrFrequency;
-    const samples = new Float32Array(sampleNum);
+    const audioBuffer = new Float32Array(IOValues.audioCtx.sampleRate);
+    const sampleWidth = Math.floor(audioBuffer.length / sampleNum) || 1;
     const noiseChannel = audioChannels[3];
-    for (let i = 0; i < sampleNum; i++) {
-        samples[i] = noiseChannel.lfsr & 0x01;
+    for (let i = 0; i < sampleNum && (i * sampleWidth + sampleWidth) < audioBuffer.length; i++) {
+        for (let j = 0; j < sampleWidth; j++) {
+            audioBuffer[i * sampleWidth + j] = (noiseChannel.lfsr & 0x01);
+        }
         const xorBit = (noiseChannel.lfsr & 0x01) ^ ((noiseChannel.lfsr >> 1) & 0x01);
+        noiseChannel.lfsr = lfsrWidth ? (noiseChannel.lfsr & 0x7f7f) | (xorBit << 15) | (xorBit << 7) : (noiseChannel.lfsr & 0x7FFF) | (xorBit << 15);
         noiseChannel.lfsr >>= 1;
-        noiseChannel.lfsr = lfsrWidth ? noiseChannel.lfsr & 0x7f7f | (xorBit << 15) | (xorBit << 7) : noiseChannel.lfsr & 0x7FFF | (xorBit << 15);
     }
 
     const bufferSource = IOValues.audioCtx.createBufferSource();
-    bufferSource.buffer = IOValues.audioCtx.createBuffer(1, sampleNum, IOValues.audioCtx.sampleRate);
+    bufferSource.buffer = IOValues.audioCtx.createBuffer(1, audioBuffer.length, IOValues.audioCtx.sampleRate);
     bufferSource.loop = true;
-    bufferSource.buffer.copyToChannel(samples, 0, 0);
+    bufferSource.buffer.copyToChannel(audioBuffer, 0, 0);
 
     // Create volume controller
     const gainNode = IOValues.audioCtx.createGain();

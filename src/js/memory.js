@@ -310,6 +310,7 @@ function writeIO(addr, val) {
         case 0x23:
             if (audioChannels[3].currentWave && (val & 0x80)) {
                 audioChannels[3].currentWave.stop();
+                audioChannels[3].lfsr = Math.floor(Math.random() * 0xFFFF) & 0xFFFF; // Generate new noise on channel trigger
                 audioChannels[3].enabled = false;
             }
             break;

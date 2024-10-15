@@ -710,23 +710,6 @@ document.addEventListener("keyup", (event) => {
  * Interface for interacting with a pulse wave
  * @type {Wave}
  */
-class Wave {
-    /**
-     * Stops the wave from playing earlier than specified
-     * @returns {PulseWave}      This object
-    */
-    stop() {
-        this._oscillator.frequency.cancelScheduledValues(IOValues.audioCtx.currentTime);
-        this._gainNode.gain.cancelScheduledValues(IOValues.audioCtx.currentTime);
-        this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime, 0);
-        return this;
-    }
-}
-
-/**
- * Interface for interacting with a pulse wave
- * @type {Wave}
- */
 class PulseWave {
     /**
      * Create a Pulse Wave object
@@ -795,7 +778,6 @@ class PulseWave {
  * @type {Wave}
  */
 class CustomWave {
-
     /**
      * Creates a Custom Wave object
      * @param {AudioBufferSourceNode} bufferSource Where the audio buffer is stored
@@ -827,7 +809,7 @@ class CustomWave {
     play({ frequency = 440, length = 0, volume = Globals.masterVolume / 2 }) {
         this.stop();
         this._gainNode.gain.setTargetAtTime(volume, IOValues.audioCtx.currentTime, 0);
-        this._bufferSource.playbackRate.value = frequency * 32 / 65536; // Since we have 32 samples, we playback at this rate: frequency * 32 / sample_rate
+        this._bufferSource.playbackRate.value = frequency * this._bufferSource.buffer.length / this._bufferSource.buffer.sampleRate; // Since we have 32 samples, we playback at this rate: frequency * 32 / 65536
 
         if (length !== 0) {
             this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime + length, 0);
@@ -848,6 +830,7 @@ class CustomWave {
     /**
      * Loads a maximum of 32 samples into the audio buffer. Can be done while the wave is playing.
      * @param {Array<number>} samples List of 32 4-bit samples
+     * @returns {CustomWave} This object
      */
     loadSamples(samples) {
         if (samples.length > 32) {
@@ -857,17 +840,19 @@ class CustomWave {
             this._audioBuffer[i] = samples[i] / 0xF;
         }
         this._bufferSource.buffer.copyToChannel(this._audioBuffer, 0, 0);
-        
+
+        // Must replace the audio source to comply with Firefox's implementation of AudioBufferSourceNode
         const replacementSource = IOValues.audioCtx.createBufferSource();
         replacementSource.buffer = this._bufferSource.buffer;
         replacementSource.loop = true;
         replacementSource.connect(this._gainNode);
-        
+
         this._bufferSource.stop();
         this._bufferSource.disconnect();
 
         this._bufferSource = replacementSource;
         this._bufferSource.start();
+        return this;
     }
 }
 
@@ -875,7 +860,26 @@ class CustomWave {
  * Interface for interacting with a noise wave
  * @type {Wave}
  */
-class NoiseWave extends Wave {
+class NoiseWave {
+    /**
+     * Creates a Noise Wave object
+     * @param {AudioBufferSourceNode} bufferSource Where the audio buffer is stored
+     * @param {GainNode}              gainNode     Used to control volume
+     */
+    constructor(bufferSource, gainNode) {
+        if (!bufferSource || typeof bufferSource !== "object") {
+            throw new TypeError(`buffer must be of type AudioBuffer instead got ${bufferSource ? typeof bufferSource : bufferSource}`);
+        }
+        if (!gainNode || typeof gainNode !== "object") {
+            throw new TypeError(`gainNode must be of type GainNode instead got ${gainNode ? typeof gainNode : gainNode}`);
+        }
+
+        this._gainNode = gainNode;
+        this._gainNode.gain.value = 0;
+        this._bufferSource = bufferSource;
+        this._bufferSource.start();
+    }
+
     /**
      * Plays the noise wave with given properties and stops the previous oscillation
      * @param {Object}             properties                   Properties that should be taken into account when playing the tone
@@ -888,8 +892,8 @@ class NoiseWave extends Wave {
     */
     play({ frequency, length, envelopeLength = 0, initialVolume = Globals.masterVolume / 2, finalVolume = 0 }) {
         this.stop();
-        this._oscillator.frequency.value = frequency;
         this._gainNode.gain.setTargetAtTime(initialVolume, IOValues.audioCtx.currentTime, 0);
+        this._gainNode.connect(IOValues.audioCtx.destination);
 
         if (envelopeLength !== 0) {
             this._gainNode.gain.linearRampToValueAtTime(initialVolume, IOValues.audioCtx.currentTime);
@@ -901,6 +905,54 @@ class NoiseWave extends Wave {
         }
         return this;
     }
+
+    /**
+     * Stops the wave from playing earlier than specified
+     * @returns {CustomWave} This object
+    */
+    stop() {
+        this._gainNode.gain.cancelScheduledValues(IOValues.audioCtx.currentTime);
+        this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime, 0);
+        this._gainNode.disconnect();
+        return this;
+    }
+
+    /**
+     * 
+     * @param {number} lfsrWidth 
+     * @param {number} lfsrFrequency 
+     * @returns {CustomWave} This object
+     */
+    loadNewWave(lfsrWidth, lfsrFrequency) {
+        const sampleNum = lfsrFrequency;
+        const samples = new Float32Array(sampleNum);
+        const noiseChannel = audioChannels[3];
+        for (let i = 0; i < sampleNum; i++) {
+            samples[i] = (noiseChannel.lfsr & 0x01) * 2 - 1;
+            const xorBit = (noiseChannel.lfsr & 0x01) ^ ((noiseChannel.lfsr >> 1) & 0x01);
+            noiseChannel.lfsr >>= 1;
+            noiseChannel.lfsr = lfsrWidth ? noiseChannel.lfsr & 0x7f7f | (xorBit << 15) | (xorBit << 7) : noiseChannel.lfsr & 0x7FFF | (xorBit << 15);
+        }
+
+        console.log(lfsrWidth, lfsrFrequency, IOValues.audioCtx.sampleRate);
+        
+        const replacementSource = IOValues.audioCtx.createBufferSource();
+        replacementSource.buffer = IOValues.audioCtx.createBuffer(1, sampleNum, IOValues.audioCtx.sampleRate / 5);
+        replacementSource.buffer.copyToChannel(samples, 0, 0);
+        replacementSource.loop = true;
+        replacementSource.connect(this._gainNode);
+
+        this._bufferSource.stop();
+        this._bufferSource.disconnect();
+
+        this._bufferSource = replacementSource;
+        this._bufferSource.start();
+
+
+        return this;
+    }
+
+
 }
 
 /**
@@ -984,42 +1036,32 @@ function createGameboyCustomWave() {
 
 /**
  * 
- * @param {number} lfsrWidth Falsy if 15-bit. Truthy if 7-bit
+ * @param {number} lfsrWidth     Falsy if 15-bit. Truthy if 7-bit
+ * @param {number} lfsrFrequency Sample rate of the linear feedback shift register
+ * @param {number} sampleNum     How many random bits to sample 
  */
-function createGameboyNoiseWave(lfsrWidth, sampleNum) {
-    const samples = [];
+function createGameboyNoiseWave(lfsrWidth, lfsrFrequency) {
+    const sampleNum = lfsrFrequency;
+    const samples = new Float32Array(sampleNum);
     const noiseChannel = audioChannels[3];
-    for (let i = 0; i < (lfsrWidth ? sampleNum / 2 : sampleNum); i++) {
-        samples.push(noiseChannel.lfsr & 0x01);
+    for (let i = 0; i < sampleNum; i++) {
+        samples[i] = noiseChannel.lfsr & 0x01;
         const xorBit = (noiseChannel.lfsr & 0x01) ^ ((noiseChannel.lfsr >> 1) & 0x01);
         noiseChannel.lfsr >>= 1;
         noiseChannel.lfsr = lfsrWidth ? noiseChannel.lfsr & 0x7f7f | (xorBit << 15) | (xorBit << 7) : noiseChannel.lfsr & 0x7FFF | (xorBit << 15);
     }
 
-    const oscillator = IOValues.audioCtx.createOscillator();
-    const maxFrequency = 1000; // Highest *reasonable* frequency in Hz
-    const maxCoefficient = IOValues.audioCtx.sampleRate / (2 * maxFrequency); // Highest *reasonable* value that a coefficient can have before fourier series breaks down
-    const real = new Float32Array(IOValues.audioCtx.sampleRate / 2);
-    const imaginary = new Float32Array(IOValues.audioCtx.sampleRate / 2);
-
-    // Discrete Fourier Transform
-    real[0] = 0; imaginary[0] = 0;
-    for (let i = 1; i < maxCoefficient; i++) {
-        for (let j = 1; j < samples.length; j++) {
-            const sinusoidArgument = 2 * i * Math.PI * j / samples.length;
-            real[i] += samples[j] * Math.cos(sinusoidArgument);
-            imaginary[i] += samples[j] * Math.sin(sinusoidArgument);
-        }
-    }
-
-    oscillator.setPeriodicWave(IOValues.audioCtx.createPeriodicWave(real, imaginary));
+    const bufferSource = IOValues.audioCtx.createBufferSource();
+    bufferSource.buffer = IOValues.audioCtx.createBuffer(1, sampleNum, IOValues.audioCtx.sampleRate);
+    bufferSource.loop = true;
+    bufferSource.buffer.copyToChannel(samples, 0, 0);
 
     // Create volume controller
     const gainNode = IOValues.audioCtx.createGain();
     gainNode.connect(IOValues.audioCtx.destination);
-    oscillator.connect(gainNode);
+    bufferSource.connect(gainNode);
 
-    return new NoiseWave(oscillator, gainNode);
+    return new NoiseWave(bufferSource, gainNode);
 }
 
 /**
@@ -1203,11 +1245,7 @@ function doAudioUpdate() {
                 if (!channel.currentWave) {
                     channel.currentWave = createGameboyCustomWave();
                 }
-                else {
-                    channel.currentWave.stop();
-                }
-                channel.currentWave.loadSamples(samples);
-                channel.currentWave.play({
+                channel.currentWave.stop().loadSamples(samples).play({
                     length: audioLength,
                     frequency: audioFrequency,
                     volume: audioVolume,
@@ -1225,7 +1263,7 @@ function doAudioUpdate() {
         // Audio Channel 4 (Noise)
         {
             const channel = audioChannels[3];
-            if (false && !channel.enabled && (Globals.HRAM[0x23] & 0x80)) {
+            if (!channel.enabled && (Globals.HRAM[0x23] & 0x80)) {
                 const lengthTimer = Globals.HRAM[0x20] & 0x3F;
                 const lengthEnable = (Globals.HRAM[0x23] & 0x40);
                 const clockShift = (Globals.HRAM[0x22] & 0xF0) >> 4;
@@ -1241,17 +1279,14 @@ function doAudioUpdate() {
 
                 // Technically, this is not *exactly* how the gameboy made white noise, but it's close enough
                 // What *should* happen is the oscillator should be either 1 or 0 constantly, but we can't do that so we just sample a large amount
-                const nSamples = 400;
                 const lfsrFrequency = 262144 / ((clockDivider || 0.5) * (2 << clockShift)); // https://gbdev.io/pandocs/Audio_Registers.html#ff22--nr43-channel-4-frequency--randomness
-                const audioFrequency = lfsrFrequency / nSamples; // https://gbdev.io/pandocs/Audio_Registers.html#ff22--nr43-channel-4-frequency--randomness
-                if (channel.currentWave) {
-                    channel.currentWave.stop();
-                }
-                channel.currentWave = createGameboyNoiseWave(lfsrWidth, nSamples);
 
-                channel.currentWave.play({
+                if (!channel.currentWave) {
+                    channel.currentWave = createGameboyNoiseWave(lfsrWidth, lfsrFrequency);
+                }
+
+                channel.currentWave.stop().loadNewWave(lfsrWidth, lfsrFrequency).play({
                     length: audioLength,
-                    frequency: audioFrequency,
                     initialVolume: initialVolume * Globals.masterVolume / 0xF, // Converts binary volume into real gain
                     finalVolume: envelopeDirection ? Globals.masterVolume : 0,
                     envelopeLength: envelopeLength,

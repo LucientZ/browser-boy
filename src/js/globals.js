@@ -55,7 +55,7 @@ const ROMHeaderAddresses = Object.freeze({
  * @prop {boolean}           halted             Halt is called. Low power mode where the CPU stops until an interrupt
  * @prop {boolean}           standby            Very low power mode. Very low power mode
  * @prop {boolean}           frozen             Program does not run because of the emulator saying to stop.
- * @prop {boolean}           doubleSpeed        Says whether or not the gameboy is 
+ * @prop {boolean}           doubleSpeed        Says whether or not the gameboy is in double CPU speed mode
  * @prop {number}            IME                Interrupt Master Enable flag. 1 if interrupts are enabled
  * @prop {number}            IE                 Interrupt Enable flag. Says what interrupts are allowed to be called
  * @prop {number}            IMERequested       Says whether the IME was requested. This is used to simulate the fact that interrupts are delayed by one instruction
@@ -96,6 +96,7 @@ const Globals = {
     halted: false,
     standby: false,
     frozen: true,
+    doubleSpeed: false,
     IME: 0,
     IE: 0x01,
     IMERequested: false,

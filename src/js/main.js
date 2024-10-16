@@ -114,6 +114,14 @@ function resetRegs() {
     IORegisters.OBP1 = 0x00;
     IORegisters.VRAMBankNumber = 0x00;
     IORegisters.bootROMDisabled = 0x00;
+
+    // Reset audio channels
+    for (const channel of audioChannels) {
+        if (channel.currentWave) {
+            channel.currentWave.stop();
+        }
+        channel.enabled = false;
+    }
 }
 
 /**
@@ -291,6 +299,15 @@ function parseROM(rom) {
 
 }
 
+function freezeProgram() {
+    Globals.frozen = true;
+    for (const channel of audioChannels) {
+        if (channel.currentWave) {
+            channel.currentWave.stop();
+        }
+    }
+}
+
 function doProgramIteration() {
     doLCDUpdate();
     doTimerUpdate();
@@ -313,16 +330,6 @@ function doProgramIteration() {
     }
 }
 
-setInterval(() => {
-    if (Globals.ROM && !Globals.frozen) {
-        for (let i = 0; i < Globals.iterationsPerTick; i++) {
-            if (Globals.frozen) {
-                break;
-            }
-            doProgramIteration();
-        }
-    }
-});
 
 setInterval(flushVideoBuffer, 16.74);
 setInterval(() => {
@@ -331,9 +338,19 @@ setInterval(() => {
 
 window.onload = () => {
     const speedSlider = document.getElementById("runtime-speed-slider");
-    speedSlider.value = Globals.iterationsPerTick;
+    speedSlider.value = localStorage.iterationsPerTick || Globals.iterationsPerTick;
+    Globals.iterationsPerTick = speedSlider.value;
     speedSlider.oninput = () => {
         Globals.iterationsPerTick = speedSlider.value;
+        localStorage.iterationsPerTick = Globals.iterationsPerTick;
+    }
+
+    const volumeSlider = document.getElementById("volume-slider");
+    volumeSlider.value = localStorage.volumeSliderValue || 10;
+    Globals.masterVolume = volumeSlider.value / 100;
+    volumeSlider.oninput = () => {
+        Globals.masterVolume = volumeSlider.value / 100;
+        localStorage.volumeSliderValue = volumeSlider.value;
     }
 
     const saveDataInput = document.getElementById("save-upload");
@@ -345,3 +362,18 @@ window.onload = () => {
         }
     });
 }
+
+(function eventLoop() {
+    if (Globals.ROM && !Globals.frozen) {
+        for (let i = 0; i < Globals.iterationsPerTick; i++) {
+            if (Globals.frozen) {
+                break;
+            }
+            const currentCycles = Globals.cycleNumber;
+            doProgramIteration();
+            const cycleDelta = Globals.cycleNumber - currentCycles;
+            i += cycleDelta;
+        }
+    }
+    requestAnimationFrame(eventLoop);
+})();

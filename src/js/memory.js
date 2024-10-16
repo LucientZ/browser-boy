@@ -181,6 +181,8 @@ function readIO(addr) {
             return IORegisters.timerControl;
         case 0x0F:
             return IORegisters.IF;
+        case 0x26:
+            return (Globals.HRAM[0x26] & 0xF0) | (audioChannels[3].enabled << 3) | (audioChannels[2].enabled << 2) | (audioChannels[1].enabled << 1) | (audioChannels[0].enabled)
         case 0x40:
             return IORegisters.LCDC;
         case 0x41:
@@ -265,21 +267,55 @@ function writeIO(addr, val) {
         case 0x07:
             IORegisters.timerControl = val;
             return;
+        case 0x0F:
+            IORegisters.IF = val;
+            return;
         case 0x14:
-            if (audioChannels[0].currentWave) {
+            if (audioChannels[0].currentWave && (val & 0x80)) {
                 audioChannels[0].currentWave.stop();
+                audioChannels[0].enabled = false;
             }
-            audioChannels[0].enabled = false;
             break;
         case 0x19:
-            if (audioChannels[1].currentWave) {
+            if (audioChannels[1].currentWave && (val & 0x80)) {
                 audioChannels[1].currentWave.stop();
+                audioChannels[1].enabled = false;
             }
-            audioChannels[1].enabled = false;
             break;
         case 0x0F:
             IORegisters.IF = val;
             return;
+        case 0x14:
+            if (audioChannels[0].currentWave && (val & 0x80)) {
+                audioChannels[0].currentWave.stop();
+                audioChannels[0].enabled = false;
+            }
+            break;
+        case 0x19:
+            if (audioChannels[1].currentWave && (val & 0x80)) {
+                audioChannels[1].currentWave.stop();
+                audioChannels[1].enabled = false;
+            }
+            break;
+        case 0x1A:
+            if (audioChannels[2].currentWave && !(val & 0x80)) {
+                audioChannels[2].currentWave.stop();
+                audioChannels[2].enabled = false;
+            }
+            break;
+        case 0x1E:
+            if (audioChannels[2].currentWave && (val & 0x80)) {
+                audioChannels[2].currentWave.stop();
+                audioChannels[2].enabled = false;
+            }
+            break;
+        case 0x23:
+            if (audioChannels[3].currentWave && (val & 0x80)) {
+                audioChannels[3].currentWave.stop();
+                audioChannels[3].lfsr = Math.floor(Math.random() * 0xFFFF) & 0xFFFF; // Generate new noise on channel trigger
+                audioChannels[3].enabled = false;
+            }
+            break;
         case 0x40:
             // Reset LY to 0 when lcd is turned off
             if (IORegisters.LCDC & 0x80 && !(val & 0x80)) {

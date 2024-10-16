@@ -26,13 +26,17 @@
             <div class="game-controls">
                 <div class="evenly-spaced-row">
                     <button class="control-button" aria-label="Start" aria-details="Make the game start running" onclick="Globals.frozen = false;">Start</button>
-                    <button class="control-button" aria-label="Stop" aria-details="Stop the game running" onclick="Globals.frozen = true;">Stop</button>
+                    <button class="control-button" aria-label="Stop" aria-details="Stop the game running" onclick="freezeProgram();">Stop</button>
                     <button class="control-button" aria-label="Step" aria-details="Steps one iteration through the program" onclick="doProgramIteration();">Step</button>
                     <button class="control-button" aria-label="Unmute Audio" aria-details="Enables or disables audio playback" onclick="toggleAudio();" id="audio-toggle">Unmute Audio</button>
                 </div>
                 <div style="display: flex; flex-direction: row;">
                     <label>Runtime Speed</label>
-                    <input id="runtime-speed-slider" class="speed-slider" type="range" min="2000" max="30000" value="50" class="slider" id="myRange">
+                    <input id="runtime-speed-slider" class="control-slider" type="range" min="2000" max="30000" class="slider">
+                </div>
+                <div style="display: flex; flex-direction: row;">
+                    <label>Volume Control</label>
+                    <input id="volume-slider" class="control-slider" type="range" min="0" max="100" value="10" class="slider">
                 </div>
                 <div class="evenly-spaced-row">
                     <button class="control-button" aria-label="Download Save" onclick="downloadSaveData();">Download Save Data</button>

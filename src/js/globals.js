@@ -55,7 +55,7 @@ const ROMHeaderAddresses = Object.freeze({
  * @prop {boolean}           halted             Halt is called. Low power mode where the CPU stops until an interrupt
  * @prop {boolean}           standby            Very low power mode. Very low power mode
  * @prop {boolean}           frozen             Program does not run because of the emulator saying to stop.
- * @prop {boolean}           doubleSpeed        Says whether or not the gameboy is 
+ * @prop {boolean}           doubleSpeed        Says whether or not the gameboy is in double CPU speed mode
  * @prop {number}            IME                Interrupt Master Enable flag. 1 if interrupts are enabled
  * @prop {number}            IE                 Interrupt Enable flag. Says what interrupts are allowed to be called
  * @prop {number}            IMERequested       Says whether the IME was requested. This is used to simulate the fact that interrupts are delayed by one instruction
@@ -63,6 +63,7 @@ const ROMHeaderAddresses = Object.freeze({
  * @prop {Array<number>}     breakpoints        Addresses in which the program should stop (Freezes the program)
  * @prop {Array<string>}     callStack          Addresses the given ROM has called (Not acccurate if the stack moves)
  * @prop {number}            iterationsPerTick  States the amount of times doProgramIteration() is called per tick
+ * @prop {number}            masterVolume       Maximum gain of any audio channel
  * 
  */
 
@@ -95,6 +96,7 @@ const Globals = {
     halted: false,
     standby: false,
     frozen: true,
+    doubleSpeed: false,
     IME: 0,
     IE: 0x01,
     IMERequested: false,
@@ -102,6 +104,7 @@ const Globals = {
     breakpoints: [],
     callStack: [],
     iterationsPerTick: 7000,
+    masterVolume: 0.1,
 }
 
 Object.preventExtensions(BYTE_VALUES);
@@ -111,13 +114,12 @@ Object.preventExtensions(Globals);
 
 /**
  * @typedef AudioChannel
- * @prop {"pulse" | "wave" | "noise"} type        What type of channel this is. This defines what type
- * @prop {boolean}                    enabled     Whether the channel is currently enabled
- * @prop {number}                     dutyCycle   2-bit value that determines the type of pulse wave emitted by pulse wave channels 
- * @prop {number}                     volume      Volume of the channel
- * @prop {number | undefined}         lfsr        Linear feedback shift register used for pseudo-random noise
- * @prop {Array<Wave> | null}         waveforms   Collection of waves that the channel can play
- * @prop {Wave | null}                currentWave Current wave that the channel is playing
+ * @prop {"pulse" | "wave" | "noise"}                 type        What type of channel this is. This defines what type
+ * @prop {boolean}                                    enabled     Whether the channel is currently enabled
+ * @prop {number}                                     dutyCycle   2-bit value that determines the type of pulse wave emitted by pulse wave channels 
+ * @prop {number | undefined}                         lfsr        Linear feedback shift register used for pseudo-random noise
+ * @prop {Array<Wave> | null | undefined}             waveforms   Collection of waves that the channel can play
+ * @prop {PulseWave | CustomWave | NoiseWave | null}  currentWave Current wave that the channel is playing
  */
 
 /** @type {Array<AudioChannel>} */
@@ -126,29 +128,26 @@ const audioChannels = [
         type: "pulse",
         enabled: false,
         dutyCycle: 0,
-        volume: 0.3,
         waveforms: null,
+        currentWave: null,
     },
     {
         type: "pulse",
         enabled: false,
         dutyCycle: 0,
-        volume: 0.3,
-        waveforms: null,
+        currentWave: null,
     },
     {
         type: "wave",
         enabled: false,
         dutyCycle: 0,
-        volume: 0.3,
-        waveforms: null,
+        currentWave: null,
     },
     {
         type: "noise",
         enabled: false,
         dutyCycle: 0,
-        volume: 0.3,
-        lfsr: 0x76, // Could be any 15 bit number
-        waveforms: null,
+        lfsr: 0x2A76, // Could be any 15 bit number
+        currentWave: null,
     },
 ];

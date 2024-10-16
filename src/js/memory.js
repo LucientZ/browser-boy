@@ -181,6 +181,8 @@ function readIO(addr) {
             return IORegisters.timerControl;
         case 0x0F:
             return IORegisters.IF;
+        case 0x26:
+            return (Globals.HRAM[0x26] & 0xF0) | (audioChannels[3].enabled << 3) | (audioChannels[2].enabled << 2) | (audioChannels[1].enabled << 1) | (audioChannels[0].enabled)
         case 0x40:
             return IORegisters.LCDC;
         case 0x41:

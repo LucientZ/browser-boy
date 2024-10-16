@@ -745,14 +745,16 @@ class PulseWave {
         this.stop();
         this._oscillator.frequency.value = frequency;
         this._gainNode.gain.setTargetAtTime(initialVolume, IOValues.audioCtx.currentTime, 0);
+        this._gainNode.connect(IOValues.audioCtx.destination);
 
         if (envelopeLength !== 0) {
             this._gainNode.gain.linearRampToValueAtTime(initialVolume, IOValues.audioCtx.currentTime);
             this._gainNode.gain.linearRampToValueAtTime(finalVolume, IOValues.audioCtx.currentTime + envelopeLength);
         }
-
+        
         if (sweepLength !== 0) {
-            this._oscillator.frequency.setTargetAtTime(targetSweepFrequency, IOValues.audioCtx.currentTime + sweepLength, 0.5);
+            this._oscillator.frequency.exponentialRampToValueAtTime(frequency, IOValues.audioCtx.currentTime);
+            this._oscillator.frequency.exponentialRampToValueAtTime(targetSweepFrequency, IOValues.audioCtx.currentTime + sweepLength);
         }
 
         if (length !== 0) {
@@ -766,7 +768,9 @@ class PulseWave {
      * @returns {PulseWave}      This object
     */
     stop() {
+        this._gainNode.disconnect();
         this._oscillator.frequency.cancelScheduledValues(IOValues.audioCtx.currentTime);
+        this._oscillator.frequency.value = 1;
         this._gainNode.gain.cancelScheduledValues(IOValues.audioCtx.currentTime);
         this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime, 0);
         return this;
@@ -810,6 +814,7 @@ class CustomWave {
         this.stop();
         this._gainNode.gain.setTargetAtTime(volume, IOValues.audioCtx.currentTime, 0);
         this._bufferSource.playbackRate.value = frequency * this._bufferSource.buffer.length / this._bufferSource.buffer.sampleRate; // Since we have 32 samples, we playback at this rate: frequency * 32 / 65536
+        this._gainNode.connect(IOValues.audioCtx.destination);
 
         if (length !== 0) {
             this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime + length, 0);
@@ -822,6 +827,7 @@ class CustomWave {
      * @returns {CustomWave} This object
     */
     stop() {
+        this._gainNode.disconnect();
         this._gainNode.gain.cancelScheduledValues(IOValues.audioCtx.currentTime);
         this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime, 0);
         return this;
@@ -1129,20 +1135,20 @@ function doAudioUpdate() {
                 const periodValue = Globals.HRAM[0x13] | ((Globals.HRAM[0x14] & 0x07) << 8);
 
                 // FIXME
-                const targetSweepFrequency = sweepDirection ? 131072 : 0; // Max/Min frequency of pulse channel in Hz
-                let sweepLength = sweepPace ? 0.25 : 0;
+                const targetSweepFrequency = sweepDirection ? 1 : 131072; // Max/Min frequency of pulse channel in Hz
+                let sweepLength = 0;
                 let period = periodValue;
 
-                // while (period >= 0 && period < 0x800) {
-                //     console.log(period)
-                //     if (sweepDirection) {
-                //         period -= (period / Math.pow(2, sweepStepSize));
-                //     }
-                //     else {
-                //         period += (period / Math.pow(2, sweepStepSize));
-                //     }
-                //     sweepLength += sweepPace / 128; // Adds 7.8 ms for every sweep iteration
-                // }
+                while (period > 1 && period < 0x800) {
+                    if (sweepDirection) {
+                        period = Math.floor(period - period / Math.pow(2, sweepStepSize));
+                    }
+                    else {
+                        period = Math.floor(period + period / Math.pow(2, sweepStepSize));
+                    }
+                    sweepLength += sweepPace / 128; // Adds 7.8 ms for every sweep iteration
+                }
+                console.log(sweepLength, targetSweepFrequency, sweepPace);
 
                 const envelopeDirection = (Globals.HRAM[0x12] & 0x08) >> 3;
                 const envelopePace = Globals.HRAM[0x12] & 0x07;
@@ -1160,8 +1166,8 @@ function doAudioUpdate() {
                     initialVolume: initialVolume * Globals.masterVolume / 0xF, // Converts binary volume into real gain
                     finalVolume: envelopeDirection ? Globals.masterVolume : 0,
                     envelopeLength: envelopeLength,
-                    // sweepLength: sweepLength, // FIXME
-                    // targetSweepFrequency: targetSweepFrequency,
+                    sweepLength: sweepLength,
+                    targetSweepFrequency: targetSweepFrequency,
                 });
                 channel.enabled = true;
                 if (audioLength !== 0) {
@@ -1290,7 +1296,7 @@ function doAudioUpdate() {
 
                 channel.currentWave.stop().loadNewWave(lfsrWidth, lfsrFrequency).play({
                     length: audioLength,
-                    initialVolume: initialVolume * Globals.masterVolume / 0x1E, // Converts binary volume into real gain
+                    initialVolume: initialVolume * Globals.masterVolume / 0xF, // Converts binary volume into real gain
                     finalVolume: envelopeDirection ? Globals.masterVolume : 0,
                     envelopeLength: envelopeLength,
                 });

@@ -1107,6 +1107,7 @@ function initializeAudio() {
         audioChannels[1].waveforms.push(createGameboyPulseWave(i));
     }
     audioChannels[2].currentWave = createGameboyCustomWave();
+    Globals.HRAM[0x26] |= 0x80; // Audio on/off bit
 }
 
 /**
@@ -1118,10 +1119,12 @@ function toggleAudio() {
         if (IOValues.audioCtx.state === "running") {
             IOValues.audioCtx.suspend();
             audioToggle.innerText = "Unmute Audio";
+            Globals.HRAM[0x26] &= 0x7F; // Audio on/off bit
         }
         else if (IOValues.audioCtx.state === "suspended") {
             IOValues.audioCtx.resume();
             audioToggle.innerText = "Mute Audio";
+            Globals.HRAM[0x26] |= 0x80;
         }
         else {
             initializeAudio();

@@ -114,6 +114,14 @@ function resetRegs() {
     IORegisters.OBP1 = 0x00;
     IORegisters.VRAMBankNumber = 0x00;
     IORegisters.bootROMDisabled = 0x00;
+
+    // Reset audio channels
+    for (const channel of audioChannels) {
+        if (channel.currentWave) {
+            channel.currentWave.stop();
+        }
+        channel.enabled = false;
+    }
 }
 
 /**

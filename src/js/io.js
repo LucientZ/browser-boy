@@ -737,11 +737,13 @@ class PulseWave {
      * @param {number | undefined} properties.envelopeLength       Duration in seconds of how long the envelope will last. If set to 0, disable envelope 
      * @param {number | undefined} properties.initialVolume        Volume the envelope starts at
      * @param {number | undefined} properties.finalVolume          Volume the envelope will approach
-     * @param {number | undefined} properties.sweepLength          How long the wave will take to approach a pitch in seconds
-     * @param {number | undefined} properties.targetSweepFrequency Frequency the period sweep will approach
+     * @param {number | undefined} properties.periodValue          Initial period value for the wave
+     * @param {number | undefined} properties.sweepDirection       If true, will decrease the period. Else, increases the period
+     * @param {number | undefined} properties.sweepPace            How many sweep iterations happen per 7.8 ms (128 Hz)
+     * @param {number | undefined} properties.sweepStepSize        How large the sweep will change the period Where L_{t+1} = L_t +/- L_t/2^step
      * @returns {PulseWave}        This object
     */
-    play({ frequency = 440, length = 0, envelopeLength = 0, initialVolume = Globals.masterVolume / 2, finalVolume = 0, sweepLength = 0, targetSweepFrequency = 0 }) {
+    play({ frequency = 440, length = 0, envelopeLength = 0, initialVolume = Globals.masterVolume / 2, finalVolume = 0, periodValue = 0, sweepDirection = 0, sweepPace = 0, sweepStepSize = 0 }) {
         this.stop();
         this._oscillator.frequency.value = frequency;
         this._gainNode.gain.setTargetAtTime(initialVolume, IOValues.audioCtx.currentTime, 0);
@@ -751,10 +753,22 @@ class PulseWave {
             this._gainNode.gain.linearRampToValueAtTime(initialVolume, IOValues.audioCtx.currentTime);
             this._gainNode.gain.linearRampToValueAtTime(finalVolume, IOValues.audioCtx.currentTime + envelopeLength);
         }
-        
-        if (sweepLength !== 0) {
-            this._oscillator.frequency.exponentialRampToValueAtTime(frequency, IOValues.audioCtx.currentTime);
-            this._oscillator.frequency.exponentialRampToValueAtTime(targetSweepFrequency, IOValues.audioCtx.currentTime + sweepLength);
+
+        if (sweepPace !== 0) {
+            let timeDifference = 0;
+            if (sweepDirection) {
+                for (let i = periodValue; i > 1; i -= (i >> sweepStepSize) || 1) {
+                    timeDifference += sweepPace / 128;
+                    this._oscillator.frequency.setTargetAtTime(132072 / (2048 - i), IOValues.audioCtx.currentTime + timeDifference, 0);
+                }
+            }
+            else {
+                for (let i = periodValue; i < 0x7FF; i += (i >> sweepStepSize)) {
+                    timeDifference += sweepPace / 128;
+                    this._oscillator.frequency.setTargetAtTime(132072 / (2048 - i), IOValues.audioCtx.currentTime + timeDifference, 0);
+                }
+            }
+            this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime + timeDifference, 0);
         }
 
         if (length !== 0) {
@@ -1134,29 +1148,13 @@ function doAudioUpdate() {
                 const lengthEnable = (Globals.HRAM[0x14] & 0x40);
                 const periodValue = Globals.HRAM[0x13] | ((Globals.HRAM[0x14] & 0x07) << 8);
 
-                // FIXME
-                const targetSweepFrequency = sweepDirection ? 1 : 131072; // Max/Min frequency of pulse channel in Hz
-                let sweepLength = 0;
-                let period = periodValue;
-
-                while (period > 1 && period < 0x800) {
-                    if (sweepDirection) {
-                        period = Math.floor(period - period / Math.pow(2, sweepStepSize));
-                    }
-                    else {
-                        period = Math.floor(period + period / Math.pow(2, sweepStepSize));
-                    }
-                    sweepLength += sweepPace / 128; // Adds 7.8 ms for every sweep iteration
-                }
-                console.log(sweepLength, targetSweepFrequency, sweepPace);
-
                 const envelopeDirection = (Globals.HRAM[0x12] & 0x08) >> 3;
                 const envelopePace = Globals.HRAM[0x12] & 0x07;
                 const initialVolume = (Globals.HRAM[0x12] & 0xF0) >> 4;
 
                 const envelopeLength = envelopePace ? Math.abs(envelopeDirection ? 0xF : 0x0 - initialVolume) * envelopePace / 64 : 0;
                 const audioFrequency = 131072 / (2048 - periodValue); // https://gbdev.io/pandocs/Audio_Registers.html#ff13--nr13-channel-1-period-low-write-only
-                const audioLength = lengthEnable ? Math.min((64 - lengthTimer) / 256, sweepLength || 0.25) : sweepLength; // https://gbdev.io/pandocs/Audio.html#length-timer 
+                const audioLength = lengthEnable ? (64 - lengthTimer) / 256 : 0; // https://gbdev.io/pandocs/Audio.html#length-timer 
 
                 channel.currentWave = channel.waveforms[duty];
 
@@ -1166,8 +1164,10 @@ function doAudioUpdate() {
                     initialVolume: initialVolume * Globals.masterVolume / 0xF, // Converts binary volume into real gain
                     finalVolume: envelopeDirection ? Globals.masterVolume : 0,
                     envelopeLength: envelopeLength,
-                    sweepLength: sweepLength,
-                    targetSweepFrequency: targetSweepFrequency,
+                    periodValue: periodValue,
+                    sweepDirection: sweepDirection,
+                    sweepPace: sweepPace,
+                    sweepStepSize: sweepStepSize,
                 });
                 channel.enabled = true;
                 if (audioLength !== 0) {

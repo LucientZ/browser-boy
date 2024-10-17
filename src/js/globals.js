@@ -67,7 +67,9 @@ const ROMHeaderAddresses = Object.freeze({
  * @prop {Array<number>}     breakpoints        Addresses in which the program should stop (Freezes the program)
  * @prop {Array<string>}     callStack          Addresses the given ROM has called (Not acccurate if the stack moves)
  * @prop {number}            iterationsPerTick  States the amount of times doProgramIteration() is called per tick
+ * @prop {number}            targetFrequency    How fast the gameboy should run (in mcycles/second)
  * @prop {number}            masterVolume       Maximum gain of any audio channel
+ * @prop {boolean}           audioMuted         True if IOValues.audioCtx either doesn't exist or the user has requested to suspend IOValues.audioCtx 
  * 
  */
 
@@ -108,7 +110,9 @@ const Globals = {
     breakpoints: [],
     callStack: [],
     iterationsPerTick: 7000,
+    targetFrequency: 4194304,
     masterVolume: 0.1,
+    audioMuted: true,
 }
 
 Object.preventExtensions(BYTE_VALUES);

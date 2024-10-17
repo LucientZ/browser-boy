@@ -702,30 +702,96 @@ document.addEventListener("keyup", (event) => {
 
 /**
  * @typedef Wave
- * @prop {Function}       play               Plays the current wave with given parameters (depends on the channel)
- * @prop {Function}       stop               Stops the current wave from playing
+ * @prop {Function}         play               Plays the current wave with given parameters (depends on the channel)
+ * @prop {Function}         stop               Stops the current wave from playing
+ * @prop {Function}         panWave            Pans the wave to the left, right, both, or neither
+ * @prop {GainNode}         _masterGain        Used to control whether or not the node is muted
+ * @prop {GainNode}         _gainNode          Controls the relative sound
+ * @prop {StereoPannerNode} _panNode           Controls how far left or right the sound is panned
  */
 
 /**
- * Interface for interacting with a pulse wave
+ * Base class for all wave interfaces
  * @type {Wave}
  */
-class PulseWave {
+class Wave {
+    constructor() {
+        if (!IOValues.audioCtx) {
+            throw new Error("Audio context not initialized");
+        }
+
+        // Controls whether or not the node is muted due to panning
+        this._masterGain = IOValues.audioCtx.createGain();
+        this._masterGain.gain.value = 1;
+        this._masterGain.connect(IOValues.audioCtx.destination);
+
+        this._panNode = IOValues.audioCtx.createStereoPanner();
+        this._panNode.connect(this._masterGain);
+
+        this._gainNode = IOValues.audioCtx.createGain();
+        this._gainNode.gain.value = 0;
+        this._gainNode.connect(this._panNode);
+    }
+
+    /**
+     * Stops the wave from playing earlier than specified
+     * @returns {Wave} This object
+    */
+    stop() {
+        this._gainNode.gain.cancelScheduledValues(0);
+        this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime, 0);
+        return this;
+    }
+
+    /**
+    * Pans the channel to the left, right, or both channels
+    * @param {boolean}      hardLeft 
+    * @param {boolean}      hardRight
+    * @returns {Wave} This object
+    */
+    panWave(hardLeft, hardRight) {
+        if (!(hardLeft || hardRight)) {
+            this._masterGain.gain.value = 0;
+        }
+        else {
+            this._masterGain.gain.value = 1;
+            if (hardLeft && !hardRight) {
+                this._panNode.pan.value = -1;
+            }
+            else if (!hardLeft && hardRight) {
+                this._panNode.pan.value = 1;
+            }
+            else {
+                this._panNode.pan.value = 0;
+            }
+        }
+        return this;
+    }
+}
+
+/**
+ * Interface for interacting with a pulse wave
+ * 
+ * Node hierarchy
+ * - oscillator -> gainNode -> panNode -> masterGain -> audioCtx
+ * 
+ * @type {Wave}
+ */
+class PulseWave extends Wave {
     /**
      * Create a Pulse Wave object
      * @param {OscillatorNode} _oscillator Oscillator for periodic pulse wave
      * @param {GainNode}       _gainNode   Used to control volume
      */
-    constructor(oscillator, gainNode) {
+    constructor(oscillator) {
+        super();
+
         if (!oscillator || typeof oscillator !== "object") {
             throw new TypeError(`oscillator must be of type OscillatorNode instead got ${oscillator ? typeof oscillator : oscillator}`);
         }
-        if (!gainNode || typeof gainNode !== "object") {
-            throw new TypeError(`gainNode must be of type GainNode instead got ${gainNode ? typeof gainNode : gainNode}`);
-        }
+
         this._oscillator = oscillator;
-        this._gainNode = gainNode;
-        this._gainNode.gain.value = 0;
+        this._oscillator.connect(this._gainNode);
         this._oscillator.start();
     }
 
@@ -779,40 +845,39 @@ class PulseWave {
 
     /**
      * Stops the wave from playing earlier than specified
-     * @returns {PulseWave}      This object
+     * @returns {PulseWave} This object
     */
     stop() {
-        this._gainNode.disconnect();
-        this._oscillator.frequency.cancelScheduledValues(IOValues.audioCtx.currentTime);
-        this._oscillator.frequency.value = 1;
-        this._gainNode.gain.cancelScheduledValues(IOValues.audioCtx.currentTime);
-        this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime, 0);
+        super.stop();
+        this._oscillator.frequency.cancelScheduledValues(0);
         return this;
     }
 }
 
 /**
  * Interface for interacting with a custom wave
+ * 
+ * Node hierarchy
+ * - bufferSource -> gainNode -> panNode -> masterGain -> audioCtx
+ * 
  * @type {Wave}
  */
-class CustomWave {
+class CustomWave extends Wave {
     /**
      * Creates a Custom Wave object
      * @param {AudioBufferSourceNode} bufferSource Where the audio buffer is stored
-     * @param {GainNode}              gainNode     Used to control volume
      */
-    constructor(bufferSource, gainNode) {
+    constructor(bufferSource) {
+        super();
+
         if (!bufferSource || typeof bufferSource !== "object") {
             throw new TypeError(`buffer must be of type AudioBuffer instead got ${bufferSource ? typeof bufferSource : bufferSource}`);
         }
-        if (!gainNode || typeof gainNode !== "object") {
-            throw new TypeError(`gainNode must be of type GainNode instead got ${gainNode ? typeof gainNode : gainNode}`);
-        }
 
         this._audioBuffer = new Float32Array(32); // Where 32 samples are loaded
-        this._gainNode = gainNode;
-        this._gainNode.gain.value = 0;
+
         this._bufferSource = bufferSource;
+        this._bufferSource.connect(this._gainNode);
         this._bufferSource.start();
     }
 
@@ -828,22 +893,10 @@ class CustomWave {
         this.stop();
         this._gainNode.gain.setTargetAtTime(volume, IOValues.audioCtx.currentTime, 0);
         this._bufferSource.playbackRate.value = frequency * this._bufferSource.buffer.length / this._bufferSource.buffer.sampleRate; // Since we have 32 samples, we playback at this rate: frequency * 32 / 65536
-        this._gainNode.connect(IOValues.audioCtx.destination);
 
         if (length !== 0) {
             this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime + length, 0);
         }
-        return this;
-    }
-
-    /**
-     * Stops the wave from playing earlier than specified
-     * @returns {CustomWave} This object
-    */
-    stop() {
-        this._gainNode.disconnect();
-        this._gainNode.gain.cancelScheduledValues(IOValues.audioCtx.currentTime);
-        this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime, 0);
         return this;
     }
 
@@ -878,27 +931,28 @@ class CustomWave {
 
 /**
  * Interface for interacting with a noise wave
+ * 
+ * Node hierarchy
+ * - bufferSource -> gainNode -> panNode -> masterGain -> audioCtx
+ * 
  * @type {Wave}
  */
-class NoiseWave {
+class NoiseWave extends Wave {
     /**
      * Creates a Noise Wave object
      * @param {AudioBufferSourceNode} bufferSource Where the audio buffer is stored
      * @param {GainNode}              gainNode     Used to control volume
      */
-    constructor(bufferSource, gainNode) {
+    constructor(bufferSource) {
+        super();
         if (!bufferSource || typeof bufferSource !== "object") {
             throw new TypeError(`buffer must be of type AudioBuffer instead got ${bufferSource ? typeof bufferSource : bufferSource}`);
         }
-        if (!gainNode || typeof gainNode !== "object") {
-            throw new TypeError(`gainNode must be of type GainNode instead got ${gainNode ? typeof gainNode : gainNode}`);
-        }
 
-        this._gainNode = gainNode;
-        this._gainNode.gain.value = 0;
-        this._bufferSource = bufferSource;
-        this._bufferSource.start();
         this._audioBuffer = new Float32Array(IOValues.audioCtx.sampleRate);
+        this._bufferSource = bufferSource;
+        this._bufferSource.connect(this._gainNode);
+        this._bufferSource.start();
     }
 
     /**
@@ -913,7 +967,6 @@ class NoiseWave {
     play({ length = 1, envelopeLength = 0, initialVolume = Globals.masterVolume / 2, finalVolume = 0 }) {
         this.stop();
         this._gainNode.gain.setTargetAtTime(initialVolume, IOValues.audioCtx.currentTime, 0);
-        this._gainNode.connect(IOValues.audioCtx.destination);
 
         if (envelopeLength !== 0) {
             this._gainNode.gain.linearRampToValueAtTime(initialVolume, IOValues.audioCtx.currentTime);
@@ -923,17 +976,6 @@ class NoiseWave {
         if (length !== 0) {
             this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime + length, 0);
         }
-        return this;
-    }
-
-    /**
-     * Stops the wave from playing earlier than specified
-     * @returns {CustomWave} This object
-    */
-    stop() {
-        this._gainNode.gain.cancelScheduledValues(IOValues.audioCtx.currentTime);
-        this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime, 0);
-        this._gainNode.disconnect();
         return this;
     }
 
@@ -964,15 +1006,13 @@ class NoiseWave {
         replacementSource.connect(this._gainNode);
 
         this._bufferSource.stop();
-        this._bufferSource.disconnect();
+        this._bufferSource.disconnect(this._gainNode);
 
         this._bufferSource = replacementSource;
         this._bufferSource.start();
 
         return this;
     }
-
-
 }
 
 /**
@@ -1025,12 +1065,7 @@ function createGameboyPulseWave(dutyCycleSelect) {
 
     oscillator.setPeriodicWave(IOValues.audioCtx.createPeriodicWave(real, imaginary));
 
-    // Create volume controller
-    const gainNode = IOValues.audioCtx.createGain();
-    gainNode.connect(IOValues.audioCtx.destination);
-    oscillator.connect(gainNode);
-
-    return new PulseWave(oscillator, gainNode);
+    return new PulseWave(oscillator);
 }
 
 /**
@@ -1046,12 +1081,7 @@ function createGameboyCustomWave() {
     bufferSource.buffer = IOValues.audioCtx.createBuffer(1, 32, 65536);
     bufferSource.loop = true;
 
-    // Create volume controller
-    const gainNode = IOValues.audioCtx.createGain();
-    gainNode.connect(IOValues.audioCtx.destination);
-    bufferSource.connect(gainNode);
-
-    return new CustomWave(bufferSource, gainNode);
+    return new CustomWave(bufferSource);
 }
 
 /**
@@ -1079,12 +1109,7 @@ function createGameboyNoiseWave(lfsrWidth, lfsrFrequency) {
     bufferSource.loop = true;
     bufferSource.buffer.copyToChannel(audioBuffer, 0, 0);
 
-    // Create volume controller
-    const gainNode = IOValues.audioCtx.createGain();
-    gainNode.connect(IOValues.audioCtx.destination);
-    bufferSource.connect(gainNode);
-
-    return new NoiseWave(bufferSource, gainNode);
+    return new NoiseWave(bufferSource);
 }
 
 /**
@@ -1135,6 +1160,9 @@ function toggleAudio() {
     }
 }
 
+/**
+ * All the business logic needed to control and activate each audio channel.
+ */
 function doAudioUpdate() {
     const audioMasterControl = Globals.HRAM[0x26];
     if (audioMasterControl & 0x80 && IOValues.audioCtx) {
@@ -1159,9 +1187,11 @@ function doAudioUpdate() {
                 const audioFrequency = 131072 / (2048 - periodValue); // https://gbdev.io/pandocs/Audio_Registers.html#ff13--nr13-channel-1-period-low-write-only
                 const audioLength = lengthEnable ? (64 - lengthTimer) / 256 : 0; // https://gbdev.io/pandocs/Audio.html#length-timer 
 
+                if (channel.currentWave) {
+                    channel.currentWave.stop();
+                }
                 channel.currentWave = channel.waveforms[duty];
-
-                channel.currentWave.play({
+                channel.currentWave.stop().panWave(Globals.HRAM[0x25] & 0x10, Globals.HRAM[0x25] & 0x01).play({
                     length: audioLength,
                     frequency: audioFrequency,
                     initialVolume: initialVolume * Globals.masterVolume / 0xF, // Converts binary volume into real gain
@@ -1178,7 +1208,6 @@ function doAudioUpdate() {
                         channel.enabled = false;
                     }, audioLength * 1000);
                 }
-                Globals.HRAM[0x14] &= 0x7F; // Disables channel trigger
             }
         }
 
@@ -1199,8 +1228,11 @@ function doAudioUpdate() {
                 const audioFrequency = 131072 / (2048 - periodValue); // https://gbdev.io/pandocs/Audio_Registers.html#ff13--nr13-channel-1-period-low-write-only
                 const audioLength = lengthEnable ? (64 - lengthTimer) / 256 : 0;
 
+                if (channel.currentWave) {
+                    channel.currentWave.stop();
+                }
                 channel.currentWave = channel.waveforms[duty];
-                channel.currentWave.play({
+                channel.currentWave.panWave(Globals.HRAM[0x25] & 0x20, Globals.HRAM[0x25] & 0x02).play({
                     length: audioLength,
                     frequency: audioFrequency,
                     initialVolume: initialVolume * Globals.masterVolume / 0xF, // Converts binary volume into real gain
@@ -1213,7 +1245,6 @@ function doAudioUpdate() {
                         channel.enabled = false;
                     }, audioLength * 1000);
                 }
-                Globals.HRAM[0x19] &= 0x7F; // Disables channel trigger
             }
         }
 
@@ -1235,32 +1266,30 @@ function doAudioUpdate() {
                     samples.push(Globals.HRAM[i] & 0x0F);
                 }
 
-                let audioVolume;
+                let audioVolume = 1;
                 switch (outputLevel) {
                     case 0:
                         audioVolume = 0;
                         break;
-                    case 1:
-                        audioVolume = Globals.masterVolume;
-                        break;
                     case 2:
-                        audioVolume = Globals.masterVolume * 0.5;
                         samples.pop();
+                        samples.unshift(0);
                         break;
                     case 3:
-                        audioVolume = Globals.masterVolume * 0.25;
                         samples.pop();
                         samples.pop();
+                        samples.unshift(0);
+                        samples.unshift(0);
                         break;
                 }
 
                 if (!channel.currentWave) {
                     channel.currentWave = createGameboyCustomWave();
                 }
-                channel.currentWave.stop().loadSamples(samples).play({
+                channel.currentWave.stop().panWave(Globals.HRAM[0x25] & 0x40, Globals.HRAM[0x25] & 0x04).loadSamples(samples).play({
                     length: audioLength,
                     frequency: audioFrequency,
-                    volume: audioVolume,
+                    volume: audioVolume * Globals.masterVolume,
                 });
                 channel.enabled = true;
                 if (audioLength !== 0) {
@@ -1268,7 +1297,6 @@ function doAudioUpdate() {
                         channel.enabled = false;
                     }, audioLength * 1000);
                 }
-                Globals.HRAM[0x1E] &= 0x7F; // Disables channel trigger
             }
         }
 
@@ -1297,7 +1325,7 @@ function doAudioUpdate() {
                     channel.currentWave = createGameboyNoiseWave(lfsrWidth, lfsrFrequency);
                 }
 
-                channel.currentWave.stop().loadNewWave(lfsrWidth, lfsrFrequency).play({
+                channel.currentWave.stop().loadNewWave(lfsrWidth, lfsrFrequency).panWave(Globals.HRAM[0x25] & 0x80, Globals.HRAM[0x25] & 0x08).play({
                     length: audioLength,
                     initialVolume: initialVolume * Globals.masterVolume / 0xF, // Converts binary volume into real gain
                     finalVolume: envelopeDirection ? Globals.masterVolume : 0,
@@ -1309,7 +1337,6 @@ function doAudioUpdate() {
                         channel.enabled = false;
                     }, audioLength * 1000);
                 }
-                Globals.HRAM[0x23] &= 0x7F; // Disables channel trigger
             }
         }
     }

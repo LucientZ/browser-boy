@@ -836,7 +836,6 @@ class PulseWave extends Wave {
                 }
             }
             this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime + timeDifference, 0);
-            console.log(currentTime + timeDifference);
         }
 
         if (length !== 0) {

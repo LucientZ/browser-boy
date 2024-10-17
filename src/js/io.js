@@ -467,6 +467,7 @@ function doLCDUpdate() {
 
                     IORegisters.LY = (IORegisters.LY + 1) & 0xFF;
                     if (IORegisters.LY == 154) { // Reached the end of VBLANK
+                        requestAnimationFrame(flushVideoBuffer);
                         IORegisters.LY = 0;
                         changeLCDMode(2);
                     }

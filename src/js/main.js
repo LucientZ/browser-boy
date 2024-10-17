@@ -330,8 +330,6 @@ function doProgramIteration() {
     }
 }
 
-
-setInterval(flushVideoBuffer, 16.74);
 setInterval(() => {
     updateVRAMInspector();
 }, 1000);

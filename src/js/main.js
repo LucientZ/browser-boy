@@ -150,7 +150,7 @@ function parseROM(rom) {
     // https://gbdev.io/pandocs/The_Cartridge_Header.html#014d--header-checksum
     checksum = 0;
     for (let address = 0x134; address <= 0x14C; address++) {
-        checksum = mod((checksum - Globals.ROM[address] - 1), 256);
+        checksum = (checksum - Globals.ROM[address] - 1) & 0xFF;
     }
 
     if (checksum != Globals.ROM[ROMHeaderAddresses.HEADER_CHECKSUM]) {

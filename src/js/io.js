@@ -738,7 +738,7 @@ class Wave {
      * @returns {Wave} This object
     */
     stop() {
-        this._gainNode.gain.cancelScheduledValues(0);
+        this._gainNode.gain.cancelScheduledValues(IOValues.audioCtx.currentTime);
         this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime, 0);
         return this;
     }
@@ -780,8 +780,8 @@ class Wave {
 class PulseWave extends Wave {
     /**
      * Create a Pulse Wave object
-     * @param {OscillatorNode} _oscillator Oscillator for periodic pulse wave
-     * @param {GainNode}       _gainNode   Used to control volume
+     * @param {OscillatorNode} oscillator Oscillator for periodic pulse wave
+     * @param {GainNode}       gainNode   Used to control volume
      */
     constructor(oscillator) {
         super();
@@ -811,7 +811,7 @@ class PulseWave extends Wave {
     */
     play({ frequency = 440, length = 0, envelopeLength = 0, initialVolume = Globals.masterVolume / 2, finalVolume = 0, periodValue = 0, sweepDirection = 0, sweepPace = 0, sweepStepSize = 0 }) {
         this.stop();
-        this._oscillator.frequency.value = frequency;
+        this._oscillator.frequency.setTargetAtTime(frequency, IOValues.audioCtx.currentTime, 0);
         this._gainNode.gain.setTargetAtTime(initialVolume, IOValues.audioCtx.currentTime, 0);
         this._gainNode.connect(IOValues.audioCtx.destination);
 
@@ -822,16 +822,17 @@ class PulseWave extends Wave {
 
         if (sweepPace !== 0) {
             let timeDifference = 0;
+            const currentTime = IOValues.audioCtx.currentTime;
             if (sweepDirection) {
-                for (let i = periodValue; i > 1; i -= (i >> sweepStepSize) || 1) {
+                for (let i = periodValue; i > 1 && (i >> sweepStepSize) != 0; i -= (i >> sweepStepSize)) {
                     timeDifference += sweepPace / 128;
-                    this._oscillator.frequency.setTargetAtTime(132072 / (2048 - i), IOValues.audioCtx.currentTime + timeDifference, 0);
+                    this._oscillator.frequency.setTargetAtTime(132072 / (2048 - i), currentTime + timeDifference, 0);
                 }
             }
             else {
                 for (let i = periodValue; i < 0x7FF; i += (i >> sweepStepSize)) {
                     timeDifference += sweepPace / 128;
-                    this._oscillator.frequency.setTargetAtTime(132072 / (2048 - i), IOValues.audioCtx.currentTime + timeDifference, 0);
+                    this._oscillator.frequency.setTargetAtTime(132072 / (2048 - i), currentTime + timeDifference, 0);
                 }
             }
             this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime + timeDifference, 0);
@@ -848,8 +849,9 @@ class PulseWave extends Wave {
      * @returns {PulseWave} This object
     */
     stop() {
-        super.stop();
-        this._oscillator.frequency.cancelScheduledValues(0);
+        this._oscillator.frequency.cancelScheduledValues(IOValues.audioCtx.currentTime);
+        this._gainNode.gain.cancelScheduledValues(IOValues.audioCtx.currentTime);
+        this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime, 0);
         return this;
     }
 }

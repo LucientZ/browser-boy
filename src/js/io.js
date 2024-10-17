@@ -735,10 +735,10 @@ class Wave {
 
     /**
      * Stops the wave from playing earlier than specified
-     * @returns {CustomWave} This object
+     * @returns {Wave} This object
     */
     stop() {
-        this._gainNode.gain.cancelScheduledValues(IOValues.audioCtx.currentTime);
+        this._gainNode.gain.cancelScheduledValues(0);
         this._gainNode.gain.setTargetAtTime(0, IOValues.audioCtx.currentTime, 0);
         return this;
     }
@@ -747,7 +747,7 @@ class Wave {
     * Pans the channel to the left, right, or both channels
     * @param {boolean}      hardLeft 
     * @param {boolean}      hardRight
-    * @returns {CustomWave} This object
+    * @returns {Wave} This object
     */
     panWave(hardLeft, hardRight) {
         if (!(hardLeft || hardRight)) {
@@ -849,7 +849,7 @@ class PulseWave extends Wave {
     */
     stop() {
         super.stop();
-        this._oscillator.frequency.cancelScheduledValues(IOValues.audioCtx.currentTime);
+        this._oscillator.frequency.cancelScheduledValues(0);
         return this;
     }
 }
@@ -1187,9 +1187,11 @@ function doAudioUpdate() {
                 const audioFrequency = 131072 / (2048 - periodValue); // https://gbdev.io/pandocs/Audio_Registers.html#ff13--nr13-channel-1-period-low-write-only
                 const audioLength = lengthEnable ? (64 - lengthTimer) / 256 : 0; // https://gbdev.io/pandocs/Audio.html#length-timer 
 
+                if (channel.currentWave) {
+                    channel.currentWave.stop();
+                }
                 channel.currentWave = channel.waveforms[duty];
-
-                channel.currentWave.panWave(Globals.HRAM[0x25] & 0x10, Globals.HRAM[0x25] & 0x01).play({
+                channel.currentWave.stop().panWave(Globals.HRAM[0x25] & 0x10, Globals.HRAM[0x25] & 0x01).play({
                     length: audioLength,
                     frequency: audioFrequency,
                     initialVolume: initialVolume * Globals.masterVolume / 0xF, // Converts binary volume into real gain

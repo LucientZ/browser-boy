@@ -830,7 +830,7 @@ class PulseWave extends Wave {
                 }
             }
             else {
-                for (let i = periodValue; i < 0x7FF; i += (i >> sweepStepSize)) {
+                for (let i = periodValue; i < 0x7FF && (i >> sweepStepSize) != 0; i += (i >> sweepStepSize)) {
                     timeDifference += sweepPace / 128;
                     this._oscillator.frequency.setTargetAtTime(132072 / (2048 - i), currentTime + timeDifference, 0);
                 }

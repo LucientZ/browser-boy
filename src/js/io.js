@@ -1178,7 +1178,6 @@ function doAudioUpdate() {
                         channel.enabled = false;
                     }, audioLength * 1000);
                 }
-                Globals.HRAM[0x14] &= 0x7F; // Disables channel trigger
             }
         }
 
@@ -1213,7 +1212,6 @@ function doAudioUpdate() {
                         channel.enabled = false;
                     }, audioLength * 1000);
                 }
-                Globals.HRAM[0x19] &= 0x7F; // Disables channel trigger
             }
         }
 
@@ -1235,22 +1233,20 @@ function doAudioUpdate() {
                     samples.push(Globals.HRAM[i] & 0x0F);
                 }
 
-                let audioVolume;
+                let audioVolume = 1;
                 switch (outputLevel) {
                     case 0:
                         audioVolume = 0;
                         break;
-                    case 1:
-                        audioVolume = Globals.masterVolume;
-                        break;
                     case 2:
-                        audioVolume = Globals.masterVolume * 0.5;
                         samples.pop();
+                        samples.unshift(0);
                         break;
                     case 3:
-                        audioVolume = Globals.masterVolume * 0.25;
                         samples.pop();
                         samples.pop();
+                        samples.unshift(0);
+                        samples.unshift(0);
                         break;
                 }
 
@@ -1260,7 +1256,7 @@ function doAudioUpdate() {
                 channel.currentWave.stop().loadSamples(samples).play({
                     length: audioLength,
                     frequency: audioFrequency,
-                    volume: audioVolume,
+                    volume: audioVolume * Globals.masterVolume,
                 });
                 channel.enabled = true;
                 if (audioLength !== 0) {
@@ -1268,7 +1264,6 @@ function doAudioUpdate() {
                         channel.enabled = false;
                     }, audioLength * 1000);
                 }
-                Globals.HRAM[0x1E] &= 0x7F; // Disables channel trigger
             }
         }
 
@@ -1309,7 +1304,6 @@ function doAudioUpdate() {
                         channel.enabled = false;
                     }, audioLength * 1000);
                 }
-                Globals.HRAM[0x23] &= 0x7F; // Disables channel trigger
             }
         }
     }

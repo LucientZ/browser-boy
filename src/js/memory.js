@@ -316,6 +316,14 @@ function writeIO(addr, val) {
                 audioChannels[3].enabled = false;
             }
             break;
+        case 0x25:
+            for (let i = 0; i < audioChannels.length; i++) {
+                const channel = audioChannels[i];
+                if (channel.currentWave) {
+                    channel.currentWave.panWave((val >> (4 + i)) & 0x01, (val >> i) & 0x01);
+                }
+            }
+            break;
         case 0x40:
             // Reset LY to 0 when lcd is turned off
             if (IORegisters.LCDC & 0x80 && !(val & 0x80)) {

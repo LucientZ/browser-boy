@@ -706,8 +706,8 @@ document.addEventListener("keyup", (event) => {
  * @prop {Function}         stop               Stops the current wave from playing
  * @prop {Function}         panWave            Pans the wave to the left, right, both, or neither
  * @prop {GainNode}         _masterGain        Used to control whether or not the node is muted
+ * @prop {GainNode}         _gainNode          Controls the relative sound
  * @prop {StereoPannerNode} _panNode           Controls how far left or right the sound is panned
- * @prop {StereoPannerNode} _gainNode          Controls the relative sound
  */
 
 /**
@@ -1006,7 +1006,7 @@ class NoiseWave extends Wave {
         replacementSource.connect(this._gainNode);
 
         this._bufferSource.stop();
-        this._bufferSource.disconnect();
+        this._bufferSource.disconnect(this._gainNode);
 
         this._bufferSource = replacementSource;
         this._bufferSource.start();

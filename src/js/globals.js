@@ -65,7 +65,6 @@ const ROMHeaderAddresses = Object.freeze({
  * @prop {number}            IMERequested       Says whether the IME was requested. This is used to simulate the fact that interrupts are delayed by one instruction
  * @prop {string}            serialOutput       Characters outputted to serial port
  * @prop {Array<number>}     breakpoints        Addresses in which the program should stop (Freezes the program)
- * @prop {Array<string>}     callStack          Addresses the given ROM has called (Not acccurate if the stack moves)
  * @prop {number}            iterationsPerTick  States the amount of times doProgramIteration() is called per tick
  * @prop {number}            targetFrequency    How fast the gameboy should run (in mcycles/second)
  * @prop {number}            masterVolume       Maximum gain of any audio channel
@@ -108,7 +107,6 @@ const Globals = {
     IMERequested: false,
     serialOutput: "",
     breakpoints: [],
-    callStack: [],
     iterationsPerTick: 7000,
     targetFrequency: 4194304,
     masterVolume: 0.1,

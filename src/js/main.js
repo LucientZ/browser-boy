@@ -134,7 +134,7 @@ function parseROM(rom) {
     }
 
     // Check logo
-    logo = [
+    const logo = [
         0xCE, 0xED, 0x66, 0x66, 0xCC, 0x0D, 0x00, 0x0B, 0x03, 0x73, 0x00, 0x83, 0x00, 0x0C, 0x00, 0x0D,
         0x00, 0x08, 0x11, 0x1F, 0x88, 0x89, 0x00, 0x0E, 0xDC, 0xCC, 0x6E, 0xE6, 0xDD, 0xDD, 0xD9, 0x99,
         0xBB, 0xBB, 0x67, 0x63, 0x6E, 0x0E, 0xEC, 0xCC, 0xDD, 0xDC, 0x99, 0x9F, 0xBB, 0xB9, 0x33, 0x3E,
@@ -330,6 +330,21 @@ function doProgramIteration() {
     }
 }
 
+function doProgramTick() {
+    if (Globals.ROM && !Globals.frozen) {
+        for (let i = 0; i < Globals.iterationsPerTick; i++) {
+            if (Globals.frozen) {
+                break;
+            }
+            const currentCycles = Globals.cycleNumber;
+            doProgramIteration();
+            const cycleDelta = Globals.cycleNumber - currentCycles;
+            i += cycleDelta;
+        }
+    }
+}
+
+setInterval(() => requestAnimationFrame(flushVideoBuffer), 16.74270);
 setInterval(() => {
     updateVRAMInspector();
 }, 1000);
@@ -362,22 +377,17 @@ window.onload = () => {
 }
 
 (function main() {
-    const intervalFrequency = 0.01;
+    let intervalEndTime = null;
+    let intervalID = null;
 
-    setInterval(() => {
-        const oldTime = performance.now();
-        if (Globals.ROM && !Globals.frozen) {
-            for (let i = 0; i < Globals.iterationsPerTick; i++) {
-                if (Globals.frozen) {
-                    break;
-                }
-                const currentCycles = Globals.cycleNumber;
-                doProgramIteration();
-                const cycleDelta = Globals.cycleNumber - currentCycles;
-                i += cycleDelta;
+    function interval() {
+        if (intervalEndTime !== null) {
+            for (let i = 0; i < (performance.now() - intervalEndTime); i++) {
+                doProgramTick();
             }
         }
-        const deltaTime = performance.now() - oldTime;
-        console.log(deltaTime);
-    }, Math.round(intervalFrequency * 1000));
+        intervalEndTime = performance.now();
+    }
+
+    intervalID = setInterval(interval);
 })();

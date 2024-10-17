@@ -107,7 +107,7 @@ const Globals = {
     IMERequested: false,
     serialOutput: "",
     breakpoints: [],
-    iterationsPerTick: 7000,
+    iterationsPerTick: 1259,
     targetFrequency: 4194304,
     masterVolume: 0.1,
     audioMuted: true,

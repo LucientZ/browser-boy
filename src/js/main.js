@@ -150,7 +150,7 @@ function parseROM(rom) {
     // https://gbdev.io/pandocs/The_Cartridge_Header.html#014d--header-checksum
     checksum = 0;
     for (let address = 0x134; address <= 0x14C; address++) {
-        checksum = mod((checksum - Globals.ROM[address] - 1), 256);
+        checksum = (checksum - Globals.ROM[address] - 1) & 0xFF;
     }
 
     if (checksum != Globals.ROM[ROMHeaderAddresses.HEADER_CHECKSUM]) {
@@ -330,8 +330,6 @@ function doProgramIteration() {
     }
 }
 
-
-setInterval(flushVideoBuffer, 16.74);
 setInterval(() => {
     updateVRAMInspector();
 }, 1000);
@@ -363,17 +361,23 @@ window.onload = () => {
     });
 }
 
-(function eventLoop() {
-    if (Globals.ROM && !Globals.frozen) {
-        for (let i = 0; i < Globals.iterationsPerTick; i++) {
-            if (Globals.frozen) {
-                break;
+(function main() {
+    const intervalFrequency = 0.01;
+
+    setInterval(() => {
+        const oldTime = performance.now();
+        if (Globals.ROM && !Globals.frozen) {
+            for (let i = 0; i < Globals.iterationsPerTick; i++) {
+                if (Globals.frozen) {
+                    break;
+                }
+                const currentCycles = Globals.cycleNumber;
+                doProgramIteration();
+                const cycleDelta = Globals.cycleNumber - currentCycles;
+                i += cycleDelta;
             }
-            const currentCycles = Globals.cycleNumber;
-            doProgramIteration();
-            const cycleDelta = Globals.cycleNumber - currentCycles;
-            i += cycleDelta;
         }
-    }
-    requestAnimationFrame(eventLoop);
+        const deltaTime = performance.now() - oldTime;
+        console.log(deltaTime);
+    }, Math.round(intervalFrequency * 1000));
 })();

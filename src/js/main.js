@@ -332,7 +332,7 @@ function doProgramIteration() {
 
 function doProgramTick() {
     if (Globals.ROM && !Globals.frozen) {
-        for (let i = 0; i < Globals.iterationsPerTick; i++) {
+        for (let i = 0; i < Globals.iterationsPerTick * (1 << (!!Globals.doubleSpeed)); i++) {
             if (Globals.frozen) {
                 break;
             }
